@@ -9,6 +9,10 @@ public interface IBookingService
         BookingCreateRequest request,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<BookingResponse>> GetBookingsAsync(
+        BookingQueryParameters query,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<BookingResponse>> GetMyBookingsAsync(
         Guid userId,
         CancellationToken cancellationToken);
@@ -17,5 +21,10 @@ public interface IBookingService
         Guid id,
         Guid currentUserId,
         bool isAdmin,
+        CancellationToken cancellationToken);
+
+    Task<BookingResult<BookingResponse>> UpdateBookingStatusAsync(
+        Guid id,
+        BookingUpdateStatusRequest request,
         CancellationToken cancellationToken);
 }

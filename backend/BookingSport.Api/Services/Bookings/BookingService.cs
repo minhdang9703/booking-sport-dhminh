@@ -72,6 +72,39 @@ public class BookingService(AppDbContext dbContext) : IBookingService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<BookingResponse>> GetBookingsAsync(
+        BookingQueryParameters query,
+        CancellationToken cancellationToken)
+    {
+        var bookingsQuery = GetBookingResponseQuery();
+
+        if (query.FromDate.HasValue)
+        {
+            bookingsQuery = bookingsQuery.Where(booking => booking.BookingDate >= query.FromDate.Value);
+        }
+
+        if (query.ToDate.HasValue)
+        {
+            bookingsQuery = bookingsQuery.Where(booking => booking.BookingDate <= query.ToDate.Value);
+        }
+
+        if (query.CourtId.HasValue)
+        {
+            bookingsQuery = bookingsQuery.Where(booking => booking.CourtSchedule.CourtId == query.CourtId.Value);
+        }
+
+        if (query.Status.HasValue)
+        {
+            bookingsQuery = bookingsQuery.Where(booking => booking.Status == query.Status.Value);
+        }
+
+        return await bookingsQuery
+            .OrderByDescending(booking => booking.BookingDate)
+            .ThenBy(booking => booking.CourtSchedule.StartTime)
+            .Select(booking => MapBookingResponse(booking))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<BookingResponse?> GetBookingByIdAsync(
         Guid id,
         Guid currentUserId,
@@ -88,6 +121,55 @@ public class BookingService(AppDbContext dbContext) : IBookingService
         return await query
             .Select(booking => MapBookingResponse(booking))
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<BookingResult<BookingResponse>> UpdateBookingStatusAsync(
+        Guid id,
+        BookingUpdateStatusRequest request,
+        CancellationToken cancellationToken)
+    {
+        var booking = await dbContext.Bookings
+            .FirstOrDefaultAsync(booking => booking.Id == id && booking.DeletedAt == null, cancellationToken);
+
+        if (booking is null)
+        {
+            return BookingResult<BookingResponse>.NotFound("Booking was not found.");
+        }
+
+        if (BlockingStatuses.Contains(request.Status))
+        {
+            var isBooked = await dbContext.Bookings.AnyAsync(otherBooking =>
+                otherBooking.Id != booking.Id &&
+                otherBooking.CourtScheduleId == booking.CourtScheduleId &&
+                otherBooking.BookingDate == booking.BookingDate &&
+                otherBooking.DeletedAt == null &&
+                BlockingStatuses.Contains(otherBooking.Status),
+                cancellationToken);
+
+            if (isBooked)
+            {
+                return BookingResult<BookingResponse>.Conflict("This schedule has already been booked.");
+            }
+        }
+
+        booking.Status = request.Status;
+        booking.UpdatedAt = DateTimeOffset.UtcNow;
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (IsDuplicateBookingException(exception))
+        {
+            return BookingResult<BookingResponse>.Conflict("This schedule has already been booked.");
+        }
+
+        var response = await GetBookingResponseQuery()
+            .Where(existingBooking => existingBooking.Id == booking.Id)
+            .Select(existingBooking => MapBookingResponse(existingBooking))
+            .FirstAsync(cancellationToken);
+
+        return BookingResult<BookingResponse>.Success(response);
     }
 
     private async Task<BookingResult<BookingResponse>> ValidateCreateRequestAsync(

@@ -12,6 +12,17 @@ namespace BookingSport.Api.Controllers;
 [Route("api/[controller]")]
 public class BookingsController(IBookingService bookingService) : ControllerBase
 {
+    [Authorize(Policy = "AdminOnly")]
+    [HttpGet]
+    public async Task<ActionResult<IReadOnlyList<BookingResponse>>> GetBookings(
+        [FromQuery] BookingQueryParameters query,
+        CancellationToken cancellationToken)
+    {
+        var bookings = await bookingService.GetBookingsAsync(query, cancellationToken);
+
+        return Ok(bookings);
+    }
+
     [HttpPost]
     public async Task<ActionResult<BookingResponse>> CreateBooking(
         BookingCreateRequest request,
@@ -63,6 +74,18 @@ public class BookingsController(IBookingService bookingService) : ControllerBase
         var booking = await bookingService.GetBookingByIdAsync(id, userId, isAdmin, cancellationToken);
 
         return booking is null ? NotFound() : Ok(booking);
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    [HttpPut("{id:guid}/status")]
+    public async Task<ActionResult<BookingResponse>> UpdateBookingStatus(
+        Guid id,
+        BookingUpdateStatusRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await bookingService.UpdateBookingStatusAsync(id, request, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : ToActionResult(result);
     }
 
     private bool TryGetCurrentUserId(out Guid userId)

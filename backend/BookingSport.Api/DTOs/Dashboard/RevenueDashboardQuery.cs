@@ -4,4 +4,5 @@ public class RevenueDashboardQuery
 {
     public DateOnly? FromDate { get; set; }
     public DateOnly? ToDate { get; set; }
+    public RevenuePeriod Period { get; set; } = RevenuePeriod.Day;
 }
