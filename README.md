@@ -1,87 +1,100 @@
-
 # Booking Sport
 
-Dự án "Booking Sport" là một hệ thống đặt lịch và quản lý sân thể thao, gồm backend API bằng ASP.NET Core và một frontend (thư mục `frontend`).
+Booking Sport là hệ thống đặt lịch và quản lý sân thể thao, gồm backend API bằng ASP.NET Core và frontend trong thư mục `frontend`.
 
-## Tính năng chính
+## Tính Năng Chính
 
-- Quản lý người dùng, vai trò và xác thực.
-- Quản lý sân (courts) và khung giờ (schedules).
-- Tạo, huỷ và theo dõi lịch đặt.
-- Quản lý thanh toán và trạng thái đơn đặt.
-- Bảng điều khiển thống kê (dashboard).
+- Xác thực người dùng bằng JWT, phân quyền `Customer` và `Admin`.
+- Người dùng xem danh sách sân, xem lịch trống theo ngày, đặt sân theo khung giờ và xem lịch sử đặt sân.
+- Admin quản lý sân và khung giờ sân.
+- Admin quản lý lịch đặt, lọc booking và xác nhận/hủy/hoàn tất booking.
+- Admin xem dashboard doanh thu theo ngày, tuần hoặc tháng.
 
-## Kiến trúc & Công nghệ
+## Kiến Trúc Và Công Nghệ
 
-- Backend: .NET 8 (ASP.NET Core Web API)
-- ORM: Entity Framework Core (migrations có trong `backend/BookingSport.Api/Migrations`)
-- Cơ sở dữ liệu: sử dụng migration và script SQL trong thư mục `scripts/` để tạo/seed dữ liệu
-- Frontend: thư mục `frontend` (ứng dụng client — xem README riêng nếu có)
+- Backend: .NET 8, ASP.NET Core Web API.
+- Database: PostgreSQL.
+- ORM: Entity Framework Core, migrations trong `backend/BookingSport.Api/Migrations`.
+- Auth: JWT Bearer token.
+- Frontend: thư mục `frontend`.
 
-## Yêu cầu
+## Yêu Cầu
 
-- .NET SDK 8
-- Docker & Docker Compose (tùy chọn)
-- PostgreSQL hoặc DB tương thích (theo cấu hình trong `appsettings.*`)
+- .NET SDK 8.
+- PostgreSQL hoặc Docker/Docker Compose.
+- EF Core CLI nếu cần chạy migration thủ công.
 
-> Ghi chú: trên Windows, các script `.sh` trong `scripts/` có thể chạy trong WSL hoặc bằng Bash.
+## Chạy Nhanh Local
 
-## Chạy nhanh (Local)
-
-1. Mở terminal, chuyển vào thư mục backend:
+Chuyển vào thư mục backend API:
 
 ```bash
 cd backend/BookingSport.Api
 ```
 
-2. Cài dependencies và build:
+Restore, build và chạy migration:
 
 ```bash
 dotnet restore
 dotnet build
-```
-
-3. Áp migration và cập nhật database:
-
-```bash
 dotnet ef database update
 ```
 
-4. Chạy ứng dụng API:
+Chạy API:
 
 ```bash
 dotnet run
 ```
 
-Hoặc sử dụng Docker Compose (từ thư mục `backend`):
+Hoặc chạy hạ tầng bằng Docker Compose từ thư mục `backend`:
 
 ```bash
 docker compose up -d
 ```
 
-## Seed dữ liệu
+Tắt Docker Compose:
 
-Các script seed nằm trong thư mục `scripts/`:
+```bash
+docker compose down
+```
 
-- `seed-auth-users.sql` / `seed-auth-users.sh` — tạo người dùng mẫu cho xác thực.
-- `seed-current-data.sql` / `seed-current-data.sh` — dữ liệu mẫu hiện trạng sân, lịch.
+## Seed Dữ Liệu
 
-Trên Windows có thể chạy các file `.sql` trực tiếp bằng client DB hoặc chạy `.sh` qua WSL.
+Các script seed nằm trong `backend/scripts`:
 
-## API
+- `seed-auth-users.sql` / `seed-auth-users.sh`: tạo user mẫu cho xác thực.
+- `seed-current-data.sql` / `seed-current-data.sh`: tạo dữ liệu mẫu cho sân và lịch.
 
-Controllers chính nằm trong `backend/BookingSport.Api/Controllers` (ví dụ: `AuthController`, `BookingsController`, `CourtsController`).
+Trên Windows, có thể chạy file `.sql` bằng database client hoặc chạy `.sh` qua WSL/Git Bash.
 
-Base URL khi chạy local thường là `http://localhost:5000` (hoặc theo cấu hình `launchSettings.json`).
+## API MVP
 
-## Thử nghiệm
+Base URL local thường là `http://localhost:5000`, tùy cấu hình trong `launchSettings.json`.
 
-Chạy test project (nếu có):
+Các nhóm API chính:
+
+- Auth: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`.
+- Courts: `GET /api/courts`, `GET /api/courts/{id}`, `POST /api/courts`, `PUT /api/courts/{id}`, `DELETE /api/courts/{id}`.
+- Court schedules: `GET /api/court-schedules`, `GET /api/court-schedules/{id}`, `POST /api/court-schedules`, `PUT /api/court-schedules/{id}`, `DELETE /api/court-schedules/{id}`.
+- Availability: `GET /api/courts/{courtId}/available-schedules?date=YYYY-MM-DD`.
+- Bookings: `POST /api/bookings`, `GET /api/bookings/my`, `GET /api/bookings/{id}`.
+- Admin bookings: `GET /api/bookings`, `PUT /api/bookings/{id}/status`.
+- Dashboard: `GET /api/dashboard/revenue?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD&period=Day|Week|Month`.
+
+Chi tiết request/response xem [API_DOCS.md](API_DOCS.md).
+
+## Kiểm Thử
+
+Chạy test nếu có test project:
 
 ```bash
 dotnet test
 ```
 
-## Đóng góp
+## Cấu Trúc Chính
 
-## License
+- `backend/BookingSport.Api/Controllers`: API controllers.
+- `backend/BookingSport.Api/Services`: business logic.
+- `backend/BookingSport.Api/DTOs`: request/response DTOs.
+- `backend/BookingSport.Api/Entities`: EF Core entities.
+- `backend/BookingSport.Api/Migrations`: EF Core migrations.

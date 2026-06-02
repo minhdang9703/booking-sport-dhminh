@@ -1,153 +1,383 @@
+# API Documentation - Booking Sport
 
-# API Documentation — Booking Sport
+Base URL local: `http://localhost:5000` hoặc theo `backend/BookingSport.Api/Properties/launchSettings.json`.
 
-Base URL (local): `http://localhost:5000` (kiểm tra `launchSettings.json` hoặc cấu hình môi trường)
+Các endpoint yêu cầu đăng nhập dùng header:
 
-## Xác thực
+```http
+Authorization: Bearer {accessToken}
+```
 
-- Header: `Authorization: Bearer {token}`
+Admin endpoint yêu cầu JWT có role `Admin`.
+
+Ghi chú enum: query/body có thể dùng tên enum như `Confirmed`, `Wednesday`, `Week` nếu model binding nhận được; response hiện trả enum dạng số vì JSON config chưa bật string enum converter.
+
+Mapping enum thường dùng:
+
+- `BookingStatus`: `Pending = 1`, `Confirmed = 2`, `Cancelled = 3`, `Completed = 4`.
+- `RevenuePeriod`: `Day = 1`, `Week = 2`, `Month = 3`.
+- `DayOfWeek`: `Sunday = 0`, `Monday = 1`, `Tuesday = 2`, `Wednesday = 3`, `Thursday = 4`, `Friday = 5`, `Saturday = 6`.
+
+## Auth
 
 ### POST /api/auth/register
-- Mô tả: Đăng ký người dùng mới.
-- Request body (JSON):
+
+Đăng ký user mới.
+
+Body:
 
 ```json
 {
-	"email": "user@example.com",
-	"password": "P@ssw0rd",
-	"fullName": "Nguyen Van A"
+  "email": "user@example.com",
+  "password": "P@ssw0rd",
+  "fullName": "Nguyen Van A"
 }
 ```
 
-- Response: `201 Created` với thông tin `AuthResponse` chứa token và user.
+Response: `200 OK` với `AuthResponse` gồm token và thông tin user.
 
 ### POST /api/auth/login
-- Mô tả: Đăng nhập, trả về JWT.
-- Request body (JSON):
+
+Đăng nhập và nhận JWT.
+
+Body:
 
 ```json
 {
-	"email": "user@example.com",
-	"password": "P@ssw0rd"
+  "email": "user@example.com",
+  "password": "P@ssw0rd"
 }
 ```
 
-- Response: `200 OK` — `AuthResponse` gồm `accessToken`, `expiresIn`, `user`.
+Response: `200 OK` với `AuthResponse`.
 
 ### GET /api/auth/me
-- Mô tả: Lấy thông tin người dùng hiện tại.
-- Yêu cầu: header `Authorization`.
-- Response: `200 OK` — `CurrentUserResponse`.
 
-## Users
+Lấy thông tin user hiện tại.
 
-### GET /api/users
-- Mô tả: Lấy danh sách người dùng (admin).
-- Query: `page`, `pageSize`, `role` (tuỳ implement).
+Yêu cầu: đăng nhập.
 
-### GET /api/users/{id}
-- Mô tả: Lấy chi tiết user theo `id`.
+Response: `200 OK` với `CurrentUserResponse`.
 
-### PUT /api/users/{id}
-- Mô tả: Cập nhật thông tin user (admin hoặc chính chủ).
-
-## Courts (Sân)
+## Courts
 
 ### GET /api/courts
-- Mô tả: Lấy danh sách sân, hỗ trợ lọc theo `venueId`, `sportId`, `status`.
+
+Lấy danh sách sân.
+
+Query:
+
+- `venueId`: lọc theo cụm sân.
+- `sportId`: lọc theo môn thể thao.
+- `status`: lọc theo trạng thái sân.
+- `keyword`: tìm theo tên sân.
+
+Response: `200 OK` với danh sách `CourtResponse`.
 
 ### GET /api/courts/{id}
-- Mô tả: Lấy chi tiết sân.
+
+Lấy chi tiết sân.
+
+Response: `200 OK` với `CourtResponse`, hoặc `404 Not Found`.
+
+### GET /api/courts/{courtId}/available-schedules?date=YYYY-MM-DD
+
+Lấy các khung giờ còn trống của một sân theo ngày.
+
+Response: `200 OK` với danh sách:
+
+```json
+[
+  {
+    "scheduleId": "00000000-0000-0000-0000-000000000000",
+    "courtId": "00000000-0000-0000-0000-000000000000",
+    "courtName": "Sân 1",
+    "date": "2026-06-10",
+    "dayOfWeek": 3,
+    "startTime": "18:00:00",
+    "endTime": "19:00:00",
+    "price": 200000,
+    "isAvailable": true
+  }
+]
+```
 
 ### POST /api/courts
-- Mô tả: Tạo sân mới (admin).
-- Body: `CourtCreateRequest` (tên, venueId, sportId, mô tả, trạng thái, giá...)
+
+Tạo sân mới.
+
+Yêu cầu: admin.
+
+Body:
+
+```json
+{
+  "venueId": "00000000-0000-0000-0000-000000000000",
+  "sportId": "00000000-0000-0000-0000-000000000000",
+  "name": "Sân 1",
+  "status": "Active",
+  "description": "Sân cỏ nhân tạo"
+}
+```
+
+Response: `201 Created` với `CourtResponse`.
 
 ### PUT /api/courts/{id}
-- Mô tả: Cập nhật sân (admin).
+
+Cập nhật sân.
+
+Yêu cầu: admin.
+
+Body:
+
+```json
+{
+  "name": "Sân 1",
+  "status": "Active",
+  "description": "Sân cỏ nhân tạo"
+}
+```
+
+Response: `200 OK` với `CourtResponse`.
 
 ### DELETE /api/courts/{id}
-- Mô tả: Xoá sân hoặc đánh dấu inactive (admin).
 
-## Court Schedules / Availability
+Xóa mềm sân.
 
-### GET /api/courts/{courtId}/schedules
-- Mô tả: Lấy khung giờ có sẵn/đã đặt của một sân.
-- Query: `date` (YYYY-MM-DD), `from`, `to`.
+Yêu cầu: admin.
 
-### POST /api/courts/{courtId}/schedules
-- Mô tả: Tạo khung giờ cho sân (admin/venue manager).
+Response: `204 No Content`.
 
-## Bookings (Đặt lịch)
+## Court Schedules
+
+### GET /api/court-schedules
+
+Lấy danh sách khung giờ sân.
+
+Query:
+
+- `courtId`: lọc theo sân.
+- `dayOfWeek`: lọc theo ngày trong tuần, ví dụ `Monday`.
+- `isAvailable`: lọc khung giờ đang bật/tắt.
+
+Response: `200 OK` với danh sách `CourtScheduleResponse`.
+
+### GET /api/court-schedules/{id}
+
+Lấy chi tiết khung giờ sân.
+
+Response: `200 OK` với `CourtScheduleResponse`, hoặc `404 Not Found`.
+
+### POST /api/court-schedules
+
+Tạo khung giờ sân.
+
+Yêu cầu: admin.
+
+Body:
+
+```json
+{
+  "courtId": "00000000-0000-0000-0000-000000000000",
+  "dayOfWeek": "Wednesday",
+  "startTime": "18:00:00",
+  "endTime": "19:00:00",
+  "price": 200000,
+  "isAvailable": true
+}
+```
+
+Response: `201 Created` với `CourtScheduleResponse`.
+
+### PUT /api/court-schedules/{id}
+
+Cập nhật khung giờ sân.
+
+Yêu cầu: admin.
+
+Body:
+
+```json
+{
+  "dayOfWeek": "Wednesday",
+  "startTime": "18:00:00",
+  "endTime": "19:00:00",
+  "price": 220000,
+  "isAvailable": true
+}
+```
+
+Response: `200 OK` với `CourtScheduleResponse`.
+
+### DELETE /api/court-schedules/{id}
+
+Xóa mềm khung giờ sân.
+
+Yêu cầu: admin.
+
+Response: `204 No Content`.
+
+## Bookings
 
 ### POST /api/bookings
-- Mô tả: Tạo đặt lịch mới.
-- Yêu cầu: `Authorization`.
-- Body (ví dụ `BookingCreateRequest`):
+
+Tạo booking mới cho user hiện tại.
+
+Yêu cầu: đăng nhập.
+
+Body:
 
 ```json
 {
-	"courtId": 123,
-	"date": "2026-06-10",
-	"startTime": "18:00",
-	"endTime": "19:00",
-	"price": 200000,
-	"customerNote": "Team tập luyện"
+  "courtScheduleId": "00000000-0000-0000-0000-000000000000",
+  "bookingDate": "2026-06-10",
+  "note": "Team tập luyện"
 }
 ```
 
-- Response: `201 Created` — `BookingResponse`.
+Response: `201 Created` với `BookingResponse`.
 
-### GET /api/bookings
-- Mô tả: Lấy danh sách đặt lịch (của user hiện tại hoặc admin cho tất cả).
-- Query: `status`, `dateFrom`, `dateTo`, `courtId`, `page`, `pageSize`.
+Ghi chú:
+
+- `bookingDate` phải khớp `dayOfWeek` của `courtScheduleId`.
+- Booking trùng khung giờ đang `Pending` hoặc `Confirmed` sẽ trả `409 Conflict`.
+- Booking mới có trạng thái mặc định `Pending`.
+
+### GET /api/bookings/my
+
+Lấy lịch sử booking của user hiện tại.
+
+Yêu cầu: đăng nhập.
+
+Response: `200 OK` với danh sách `BookingResponse`.
 
 ### GET /api/bookings/{id}
-- Mô tả: Lấy chi tiết đặt lịch.
+
+Lấy chi tiết booking.
+
+Yêu cầu: đăng nhập.
+
+Quyền truy cập:
+
+- User chỉ xem được booking của chính mình.
+- Admin xem được mọi booking.
+
+Response: `200 OK` với `BookingResponse`, hoặc `404 Not Found`.
+
+### GET /api/bookings
+
+Lấy danh sách booking để admin quản lý.
+
+Yêu cầu: admin.
+
+Query:
+
+- `fromDate`: lọc từ ngày booking.
+- `toDate`: lọc đến ngày booking.
+- `courtId`: lọc theo sân.
+- `status`: lọc theo trạng thái `Pending`, `Confirmed`, `Cancelled`, `Completed`.
+
+Response: `200 OK` với danh sách `BookingResponse`.
 
 ### PUT /api/bookings/{id}/status
-- Mô tả: Cập nhật trạng thái đặt (confirm, cancel, complete).
-- Body (ví dụ `BookingUpdateStatusRequest`):
+
+Cập nhật trạng thái booking.
+
+Yêu cầu: admin.
+
+Body:
 
 ```json
 {
-	"status": "Cancelled",
-	"note": "Khách hủy"
+  "status": "Confirmed"
 }
 ```
 
-## Payments
+Các status hỗ trợ:
 
-### POST /api/payments
-- Mô tả: Tạo yêu cầu thanh toán cho một booking.
-- Body: gồm `bookingId`, `method`, `amount`, `metadata`.
+- `Pending`
+- `Confirmed`
+- `Cancelled`
+- `Completed`
 
-### GET /api/payments/{id}
-- Mô tả: Lấy trạng thái giao dịch.
+Response: `200 OK` với `BookingResponse`.
 
-## Dashboard / Reports
+## Dashboard / Revenue
 
-### GET /api/dashboard/summary
-- Mô tả: Thống kê tổng quan (doanh thu, số booking, sân phổ biến) — admin.
+### GET /api/dashboard/revenue
 
-### GET /api/dashboard/revenue?from=YYYY-MM-DD&to=YYYY-MM-DD
-- Mô tả: Báo cáo doanh thu theo khoảng thời gian.
+Xem dashboard doanh thu theo khoảng thời gian.
 
-## Lỗi phổ biến
+Yêu cầu: admin.
 
-- `400 Bad Request` — dữ liệu đầu vào không hợp lệ.
-- `401 Unauthorized` — thiếu hoặc token không hợp lệ.
-- `403 Forbidden` — thiếu quyền truy cập.
-- `404 Not Found` — resource không tồn tại.
-- `409 Conflict` — xung đột (ví dụ trùng lặp booking).
+Query:
 
-## Ghi chú triển khai
+- `fromDate`: ngày bắt đầu, mặc định là 30 ngày trước ngày hiện tại.
+- `toDate`: ngày kết thúc, mặc định là ngày hiện tại.
+- `period`: cách gom nhóm doanh thu, nhận `Day`, `Week` hoặc `Month`. Mặc định là `Day`.
 
-- Các DTO chính và controller nằm tại `backend/BookingSport.Api/Controllers` và `backend/BookingSport.Api/DTOs`.
-- Kiểm tra migration trong `backend/BookingSport.Api/Migrations` khi cần cập nhật schema.
+Ví dụ:
 
----
+```http
+GET /api/dashboard/revenue?fromDate=2026-06-01&toDate=2026-06-30&period=Week
+```
 
-Nếu bạn muốn, tôi có thể:
-- Thêm ví dụ request/response đầy đủ cho mỗi endpoint.
-- Sinh OpenAPI/Swagger summary hoặc tách thành từng phần cho frontend.
+Response: `200 OK` với `RevenueDashboardResponse`:
+
+```json
+{
+  "fromDate": "2026-06-01",
+  "toDate": "2026-06-30",
+  "totalRevenue": 1200000,
+  "completedBookingCount": 6,
+  "averageBookingValue": 200000,
+  "period": 2,
+  "revenuePoints": [
+    {
+      "label": "2026-W23",
+      "fromDate": "2026-06-01",
+      "toDate": "2026-06-07",
+      "revenue": 400000,
+      "completedBookingCount": 2
+    }
+  ],
+  "dailyRevenue": [
+    {
+      "date": "2026-06-01",
+      "revenue": 200000,
+      "completedBookingCount": 1
+    }
+  ]
+}
+```
+
+Doanh thu chỉ tính booking có trạng thái `Completed`.
+
+## Health Check
+
+### GET /health
+
+Kiểm tra API đang chạy.
+
+Response:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+## Mã Lỗi Phổ Biến
+
+- `400 Bad Request`: dữ liệu đầu vào không hợp lệ.
+- `401 Unauthorized`: thiếu token hoặc token không hợp lệ.
+- `403 Forbidden`: không đủ quyền truy cập.
+- `404 Not Found`: resource không tồn tại.
+- `409 Conflict`: xung đột dữ liệu, ví dụ trùng booking hoặc trùng khung giờ.
+
+## Ghi Chú
+
+- Controllers nằm trong `backend/BookingSport.Api/Controllers`.
+- DTOs nằm trong `backend/BookingSport.Api/DTOs`.
+- Business logic nằm trong `backend/BookingSport.Api/Services`.
+- Schema database được quản lý bằng EF Core migrations trong `backend/BookingSport.Api/Migrations`.
