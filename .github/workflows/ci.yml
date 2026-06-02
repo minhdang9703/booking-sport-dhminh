@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore backend/BookingSport.sln
+
+      - name: Build
+        run: dotnet build backend/BookingSport.sln --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test backend/BookingSport.sln --configuration Release --no-build --logger "trx"
+
+      - name: Publish API
+        run: |
+          dotnet publish backend/BookingSport.Api/BookingSport.Api.csproj -c Release -o ./artifacts/BookingSport.Api
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: BookingSport.Api
+          path: ./artifacts/BookingSport.Api
