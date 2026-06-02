@@ -128,6 +128,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.HasKey(booking => booking.Id);
             entity.HasIndex(booking => new { booking.CourtScheduleId, booking.BookingDate });
+            entity.HasIndex(booking => new { booking.CourtScheduleId, booking.BookingDate })
+                .IsUnique()
+                .HasFilter("\"DeletedAt\" IS NULL AND \"Status\" IN ('Pending', 'Confirmed')");
 
             entity.Property(booking => booking.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
             entity.Property(booking => booking.TotalPrice).HasPrecision(18, 2).IsRequired();

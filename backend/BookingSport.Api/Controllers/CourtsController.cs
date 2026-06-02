@@ -1,4 +1,6 @@
+using BookingSport.Api.DTOs.Availability;
 using BookingSport.Api.DTOs.Courts;
+using BookingSport.Api.Services.Availability;
 using BookingSport.Api.Services.Courts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,7 +9,9 @@ namespace BookingSport.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class CourtsController(ICourtService courtService) : ControllerBase
+public class CourtsController(
+    ICourtService courtService,
+    IAvailabilityService availabilityService) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<CourtResponse>>> GetCourts(
@@ -27,6 +31,17 @@ public class CourtsController(ICourtService courtService) : ControllerBase
         var court = await courtService.GetCourtByIdAsync(id, cancellationToken);
 
         return court is null ? NotFound() : Ok(court);
+    }
+
+    [HttpGet("{courtId:guid}/available-schedules")]
+    public async Task<ActionResult<IReadOnlyList<AvailableScheduleResponse>>> GetAvailableSchedules(
+        Guid courtId,
+        [FromQuery] DateOnly date,
+        CancellationToken cancellationToken)
+    {
+        var result = await availabilityService.GetAvailableSchedulesAsync(courtId, date, cancellationToken);
+
+        return result.Found ? Ok(result.Schedules) : NotFound();
     }
 
     [Authorize(Policy = "AdminOnly")]
