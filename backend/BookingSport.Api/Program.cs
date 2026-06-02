@@ -2,6 +2,7 @@ using System.Text;
 using BookingSport.Api.Data;
 using BookingSport.Api.Enums;
 using BookingSport.Api.Services.Auth;
+using BookingSport.Api.Services.Courts;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 builder.Services.AddScoped(typeof(PasswordHasher<>));
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICourtService, CourtService>();
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
