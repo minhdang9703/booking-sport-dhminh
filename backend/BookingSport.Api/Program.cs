@@ -5,6 +5,7 @@ using BookingSport.Api.Services.Auth;
 using BookingSport.Api.Services.Availability;
 using BookingSport.Api.Services.Bookings;
 using BookingSport.Api.Services.Courts;
+using BookingSport.Api.Services.Dashboard;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAvailabilityService, AvailabilityService>();
 builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<ICourtService, CourtService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
