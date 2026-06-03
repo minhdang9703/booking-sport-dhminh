@@ -17,9 +17,22 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 var jwtSecret = builder.Configuration["Jwt:Secret"];
+var frontendOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    ?? throw new InvalidOperationException("CORS allowed origins are not configured.");
 
 builder.Services.AddControllers()
     .AddNewtonsoftJson();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy
+            .WithOrigins(frontendOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 builder.Services.AddScoped(typeof(PasswordHasher<>));
@@ -64,6 +77,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("Frontend");
 
 app.UseAuthentication();
 app.UseAuthorization();

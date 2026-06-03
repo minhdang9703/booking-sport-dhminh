@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
 const navItems = [
   { to: '/', label: 'Home' },
@@ -8,6 +8,14 @@ const navItems = [
 ]
 
 export function App() {
+  const location = useLocation()
+  const isAuthPage =
+    location.pathname === '/login' || location.pathname === '/register'
+
+  if (isAuthPage) {
+    return <Outlet />
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
