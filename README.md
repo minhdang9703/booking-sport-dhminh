@@ -98,3 +98,34 @@ dotnet test
 - `backend/BookingSport.Api/DTOs`: request/response DTOs.
 - `backend/BookingSport.Api/Entities`: EF Core entities.
 - `backend/BookingSport.Api/Migrations`: EF Core migrations.
+
+## Frontend React
+
+Frontend nằm trong thư mục `frontend`, dùng Vite + React + TypeScript + Tailwind CSS.
+
+Chạy lần đầu:
+
+```bash
+cd frontend
+npm.cmd install
+```
+
+Chạy dev server:
+
+```bash
+npm.cmd run dev
+```
+
+Build kiểm tra:
+
+```bash
+npm.cmd run build
+```
+
+Config API local nằm trong `frontend/.env.example`:
+
+```env
+VITE_API_BASE_URL=http://localhost:5000
+```
+
+Trên PowerShell, nếu `npm` bị chặn do execution policy, dùng `npm.cmd`.

@@ -39,8 +39,10 @@ logs/
 #################################################
 
 node_modules/
+frontend/node_modules/
 
 dist/
+frontend/dist/
 build/
 
 .npm/
@@ -54,7 +56,10 @@ build/
 
 .env
 .env.*
+frontend/.env
+frontend/.env.*
 !.env.example
+!frontend/.env.example
 
 #################################################
 # IDE
