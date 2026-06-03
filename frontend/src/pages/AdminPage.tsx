@@ -1,10 +1,5 @@
-import { PagePlaceholder } from '../components/PagePlaceholder'
+import { Navigate } from 'react-router-dom'
 
 export function AdminPage() {
-  return (
-    <PagePlaceholder
-      title="Admin"
-      description="Placeholder route for future admin booking, schedule, and revenue dashboard screens."
-    />
-  )
+  return <Navigate to="/admin/dashboard" replace />
 }

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { AuthShell } from '../components/AuthShell'
 import { FormAlert } from '../components/FormAlert'
 import { FormField } from '../components/FormField'
-import { login, saveAuthSession } from '../lib/authApi'
+import { isAdminUser, login, saveAuthSession } from '../lib/authApi'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -21,7 +21,7 @@ export function LoginPage() {
     try {
       const response = await login({ email, password })
       saveAuthSession(response)
-      navigate(response.user.role === 3 ? '/admin' : '/')
+      navigate(isAdminUser(response.user) ? '/admin' : '/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Dang nhap that bai.')
     } finally {

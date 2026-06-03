@@ -7,6 +7,7 @@ using BookingSport.Api.Services.Bookings;
 using BookingSport.Api.Services.CourtSchedules;
 using BookingSport.Api.Services.Courts;
 using BookingSport.Api.Services.Dashboard;
+using BookingSport.Api.Services.Users;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 var jwtSecret = builder.Configuration["Jwt:Secret"];
 var frontendOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>()
     ?? throw new InvalidOperationException("CORS allowed origins are not configured.");
 
 builder.Services.AddControllers()
@@ -42,6 +44,7 @@ builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<ICourtScheduleService, CourtScheduleService>();
 builder.Services.AddScoped<ICourtService, CourtService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

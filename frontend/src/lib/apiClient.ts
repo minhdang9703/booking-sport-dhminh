@@ -9,12 +9,15 @@ export async function apiRequest<TResponse>(
   path: string,
   options?: RequestInit,
 ): Promise<TResponse> {
+  const headers = new Headers(options?.headers)
+
+  if (!headers.has('Content-Type') && options?.body) {
+    headers.set('Content-Type', 'application/json')
+  }
+
   const response = await fetch(`${apiBaseUrl}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
     ...options,
+    headers,
   })
 
   if (!response.ok) {
@@ -30,15 +33,54 @@ export async function apiRequest<TResponse>(
     throw new Error(errorMessage)
   }
 
+  if (response.status === 204) {
+    return undefined as TResponse
+  }
+
   return response.json() as Promise<TResponse>
 }
 
 export function postJson<TResponse, TBody>(
   path: string,
   body: TBody,
+  headers?: HeadersInit,
 ): Promise<TResponse> {
   return apiRequest<TResponse>(path, {
     method: 'POST',
+    headers,
     body: JSON.stringify(body),
   })
+}
+
+export function putJson<TResponse, TBody>(
+  path: string,
+  body: TBody,
+  headers?: HeadersInit,
+): Promise<TResponse> {
+  return apiRequest<TResponse>(path, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(body),
+  })
+}
+
+export function deleteRequest(path: string, headers?: HeadersInit): Promise<void> {
+  return apiRequest<void>(path, {
+    method: 'DELETE',
+    headers,
+  })
+}
+
+export function buildQueryString(params: Record<string, string | undefined>) {
+  const searchParams = new URLSearchParams()
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      searchParams.set(key, value)
+    }
+  })
+
+  const queryString = searchParams.toString()
+
+  return queryString ? `?${queryString}` : ''
 }
