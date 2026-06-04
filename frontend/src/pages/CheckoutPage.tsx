@@ -1,5 +1,5 @@
-import { type FormEvent, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 
 import fieldPreviewImage from '../assets/checkout/field-preview.png'
 import { getAuthSession } from '../lib/authApi'
@@ -17,6 +17,12 @@ const paymentMethods = [
   { id: 'cash', label: 'Tại sân', icon: '●' },
 ]
 
+function isGuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value,
+  )
+}
+
 function readCheckoutState(): CheckoutState | null {
   const raw = sessionStorage.getItem('bookingSport.checkout')
 
@@ -25,7 +31,9 @@ function readCheckoutState(): CheckoutState | null {
   }
 
   try {
-    return JSON.parse(raw) as CheckoutState
+    const parsed = JSON.parse(raw) as CheckoutState
+
+    return isGuid(parsed.schedule.scheduleId) ? parsed : null
   } catch {
     return null
   }
@@ -48,32 +56,39 @@ function formatDate(value: string) {
   }).format(new Date(value))
 }
 
-function isGuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  )
-}
-
 export function CheckoutPage() {
+  const navigate = useNavigate()
   const checkoutState = useMemo(() => readCheckoutState(), [])
   const authSession = useMemo(() => getAuthSession(), [])
   const [fullName, setFullName] = useState(authSession?.user.fullName ?? '')
-  const [phoneNumber, setPhoneNumber] = useState(
-    authSession?.user.phoneNumber ?? '',
-  )
+  const [phoneNumber, setPhoneNumber] = useState(authSession?.user.phoneNumber ?? '')
   const [note, setNote] = useState('')
   const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0].id)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  useEffect(() => {
+    if (!success) {
+      return
+    }
+
+    const redirectTimer = window.setTimeout(() => {
+      navigate('/')
+    }, 1800)
+
+    return () => window.clearTimeout(redirectTimer)
+  }, [navigate, success])
+
   if (!checkoutState) {
+    sessionStorage.removeItem('bookingSport.checkout')
+
     return (
       <main className="min-h-screen bg-[#f7f9fb] px-4 pb-16 pt-24 text-[#191c1e]">
         <div className="mx-auto max-w-2xl rounded-xl bg-white p-8 text-center shadow-sm">
-          <h1 className="text-2xl font-bold">Chưa có khung giờ được chọn</h1>
+          <h1 className="text-2xl font-bold">Chưa có khung giờ hợp lệ</h1>
           <p className="mt-3 text-[#3d4a3d]">
-            Hãy quay lại màn lịch trống để chọn ngày và khung giờ trước khi thanh toán.
+            Hãy quay lại màn lịch trống và chọn một khung giờ từ dữ liệu thực tế trước khi thanh toán.
           </p>
           <Link
             to="/courts"
@@ -97,13 +112,6 @@ export function CheckoutPage() {
 
     if (!authSession) {
       setError('Bạn cần đăng nhập trước khi đặt sân.')
-      return
-    }
-
-    if (!isGuid(schedule.scheduleId)) {
-      setError(
-        'Khung giờ không hợp lệ. Hãy quay lại màn lịch trống và chọn lịch từ dữ liệu thật.',
-      )
       return
     }
 

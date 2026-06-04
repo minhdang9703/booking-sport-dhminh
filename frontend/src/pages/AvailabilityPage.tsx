@@ -11,18 +11,6 @@ import {
 
 const dayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
 
-const demoCourt: Court = {
-  id: 'football-demo',
-  venueId: 'demo',
-  venueName: 'Quận 10, TP. Hồ Chí Minh',
-  sportId: 'demo',
-  sportName: 'Sân bóng đá',
-  name: 'Sân vận động Thống Nhất',
-  status: 1,
-  description: 'Sân cỏ nhân tạo, đèn sáng, phù hợp đá 7 người.',
-  createdAt: new Date().toISOString(),
-}
-
 function toDateInputValue(date: Date) {
   const year = date.getFullYear()
   const month = `${date.getMonth() + 1}`.padStart(2, '0')
@@ -65,27 +53,6 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('vi-VN').format(value)
 }
 
-function makeDemoSchedules(date: string, court: Court): AvailableSchedule[] {
-  return [
-    ['06:00:00', '07:00:00', 300000],
-    ['07:00:00', '08:00:00', 300000],
-    ['17:00:00', '18:00:00', 420000],
-    ['18:00:00', '19:00:00', 450000],
-    ['19:00:00', '20:00:00', 450000],
-    ['20:00:00', '21:00:00', 420000],
-  ].map(([startTime, endTime, price], index) => ({
-    scheduleId: `demo-slot-${index}`,
-    courtId: court.id,
-    courtName: court.name,
-    date,
-    dayOfWeek: parseDateInput(date).getDay(),
-    startTime: String(startTime),
-    endTime: String(endTime),
-    price: Number(price),
-    isAvailable: true,
-  }))
-}
-
 function getPeriodLabel(startTime: string) {
   const hour = Number(startTime.slice(0, 2))
 
@@ -116,13 +83,8 @@ export function AvailabilityPage() {
     let isMounted = true
 
     if (!courtId) {
-      Promise.resolve().then(() => {
-        if (isMounted) {
-          setCourt(demoCourt)
-          setIsLoadingCourt(false)
-        }
-      })
-
+      setError('Không tìm thấy sân hợp lệ.')
+      setIsLoadingCourt(false)
       return
     }
 
@@ -135,7 +97,7 @@ export function AvailabilityPage() {
       })
       .catch((err: unknown) => {
         if (isMounted) {
-          setCourt({ ...demoCourt, id: courtId })
+          setCourt(null)
           setError(
             err instanceof Error
               ? err.message
@@ -156,19 +118,14 @@ export function AvailabilityPage() {
 
   useEffect(() => {
     let isMounted = true
-    const activeCourt = court ?? demoCourt
 
-    if (!courtId) {
-      Promise.resolve().then(() => {
-        if (isMounted) {
-          setSchedules(makeDemoSchedules(selectedDate, activeCourt))
-          setIsLoadingSchedules(false)
-        }
-      })
-
+    if (!courtId || !court) {
+      setSchedules([])
+      setIsLoadingSchedules(false)
       return
     }
 
+    setIsLoadingSchedules(true)
     getAvailableSchedules(courtId, selectedDate)
       .then((response) => {
         if (isMounted) {
@@ -227,7 +184,6 @@ export function AvailabilityPage() {
     setSelectedDate(toDateInputValue(date))
     setMonthCursor(new Date(date.getFullYear(), date.getMonth(), 1))
     setSelectedScheduleId('')
-    setIsLoadingSchedules(true)
   }
 
   function changeMonth(direction: -1 | 1) {
@@ -237,23 +193,48 @@ export function AvailabilityPage() {
   }
 
   function continueToCheckout() {
-    if (!selectedSchedule) {
+    if (!selectedSchedule || !court) {
       return
     }
-
-    const checkoutCourt = court ?? demoCourt
 
     sessionStorage.setItem(
       'bookingSport.checkout',
       JSON.stringify({
-        court: checkoutCourt,
+        court,
         schedule: selectedSchedule,
       }),
     )
     navigate('/checkout')
   }
 
-  const detail = court ?? demoCourt
+  if (isLoadingCourt) {
+    return (
+      <main className="min-h-screen bg-[#f7f9fb] px-4 pb-16 pt-24 sm:px-6">
+        <div className="mx-auto max-w-[1280px]">
+          <div className="h-[640px] animate-pulse rounded-xl bg-white" />
+        </div>
+      </main>
+    )
+  }
+
+  if (!court) {
+    return (
+      <main className="min-h-screen bg-[#f7f9fb] px-4 pb-16 pt-24 text-[#191c1e] sm:px-6">
+        <div className="mx-auto max-w-2xl rounded-xl bg-white p-8 text-center shadow-sm">
+          <h1 className="text-2xl font-bold">Không thể mở lịch đặt sân</h1>
+          <p className="mt-3 text-[#3d4a3d]">
+            {error || 'Sân không tồn tại hoặc dữ liệu chưa sẵn sàng.'}
+          </p>
+          <Link
+            to="/courts"
+            className="mt-6 inline-flex rounded-lg bg-[#006e2f] px-5 py-3 font-bold text-white"
+          >
+            Quay lại danh sách sân
+          </Link>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-[#f7f9fb] text-[#191c1e]">
@@ -263,18 +244,12 @@ export function AvailabilityPage() {
             <section className="overflow-hidden rounded-xl bg-white shadow-sm">
               <img
                 src={fieldCardImage}
-                alt={detail.name}
+                alt={court.name}
                 className="h-40 w-full object-cover"
               />
               <div className="space-y-2 p-4">
-                {isLoadingCourt ? (
-                  <div className="h-20 animate-pulse rounded-lg bg-[#eceef0]" />
-                ) : (
-                  <>
-                    <h1 className="text-2xl font-bold leading-8">{detail.name}</h1>
-                    <p className="text-sm text-[#3d4a3d]">📍 {detail.venueName}</p>
-                  </>
-                )}
+                <h1 className="text-2xl font-bold leading-8">{court.name}</h1>
+                <p className="text-sm text-[#3d4a3d]">📍 {court.venueName}</p>
               </div>
             </section>
 
@@ -381,7 +356,7 @@ export function AvailabilityPage() {
 
             {error ? (
               <div className="rounded-xl border border-[#ffdad6] bg-[#ffdad6] px-4 py-3 text-sm font-medium text-[#93000a]">
-                {error}. Đang hiển thị dữ liệu mẫu để kiểm tra giao diện.
+                {error}
               </div>
             ) : null}
 
@@ -399,7 +374,7 @@ export function AvailabilityPage() {
                 <div className="rounded-xl bg-white p-10 text-center shadow-sm">
                   <h3 className="text-lg font-bold">Không có lịch trống</h3>
                   <p className="mt-2 text-sm text-[#3d4a3d]">
-                    Hãy chọn ngày khác trên lịch để xem các khung giờ còn trống.
+                    Sân chưa có khung giờ khả dụng cho ngày đã chọn hoặc các khung giờ đã được đặt hết.
                   </p>
                 </div>
               ) : (
@@ -484,7 +459,7 @@ export function AvailabilityPage() {
             </div>
 
             <Link
-              to={`/courts/${courtId ?? demoCourt.id}`}
+              to={`/courts/${courtId}`}
               className="inline-flex text-sm font-semibold text-[#006e2f] hover:text-[#004b1e]"
             >
               ← Quay lại chi tiết sân

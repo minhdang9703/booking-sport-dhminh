@@ -9,78 +9,9 @@ import tennisImage from '../assets/courts/court-tennis.png'
 import volleyballImage from '../assets/courts/court-volleyball.png'
 import { getCourts, type Court } from '../lib/courtsApi'
 
-const fallbackCourts: Court[] = [
-  {
-    id: 'football-demo',
-    venueId: 'demo',
-    venueName: 'Quận 10, TP. Hồ Chí Minh',
-    sportId: 'demo',
-    sportName: 'Bóng đá',
-    name: 'Sân bóng Đại học Bách Khoa',
-    status: 1,
-    description: 'Sân cỏ nhân tạo, đèn chiếu sáng tốt, phù hợp đá 5-7 người.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'tennis-demo',
-    venueId: 'demo',
-    venueName: 'Quận 3, TP. Hồ Chí Minh',
-    sportId: 'demo',
-    sportName: 'Tennis',
-    name: 'CLB Tennis Lan Anh',
-    status: 1,
-    description: 'Mặt sân tiêu chuẩn, khu vực chờ rộng và dễ di chuyển.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'basketball-demo',
-    venueId: 'demo',
-    venueName: 'Quận Bình Thạnh, TP. Hồ Chí Minh',
-    sportId: 'demo',
-    sportName: 'Bóng rổ',
-    name: 'Sân bóng rổ Thanh Đa',
-    status: 1,
-    description: 'Sân ngoài trời thoáng, phù hợp luyện tập và giao hữu.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'badminton-demo',
-    venueId: 'demo',
-    venueName: 'Quận 1, TP. Hồ Chí Minh',
-    sportId: 'demo',
-    sportName: 'Cầu lông',
-    name: 'Nhà thi đấu Nguyễn Du',
-    status: 1,
-    description: 'Sàn trong nhà, ánh sáng ổn định, nhiều khung giờ trống.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'volleyball-demo',
-    venueId: 'demo',
-    venueName: 'Quận 7, TP. Hồ Chí Minh',
-    sportId: 'demo',
-    sportName: 'Bóng chuyền',
-    name: 'Sân bóng chuyền Phú Mỹ Hưng',
-    status: 1,
-    description: 'Sân rộng, khu vực ghế chờ và gửi xe thuận tiện.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'swimming-demo',
-    venueId: 'demo',
-    venueName: 'Quận 5, TP. Hồ Chí Minh',
-    sportId: 'demo',
-    sportName: 'Bơi lội',
-    name: 'Hồ bơi Lam Sơn',
-    status: 2,
-    description: 'Hồ bơi tiêu chuẩn, đang cập nhật lịch mở cửa tuần này.',
-    createdAt: new Date().toISOString(),
-  },
-]
-
-const sportOptions = ['Tất cả', 'Bóng đá', 'Tennis', 'Bóng rổ', 'Cầu lông']
-const priceOptions = ['Mọi mức giá', 'Dưới 200k', '200k - 400k', 'Trên 400k']
-const distanceOptions = ['Gần tôi nhất', 'Dưới 3km', 'Dưới 5km', 'Dưới 10km']
+const sportOptions = ['Tất cả', 'Football', 'Tennis', 'Basketball', 'Badminton']
+const statusOptions = ['Tất cả', 'Đang mở', 'Tạm đóng', 'Bảo trì']
+const priceOptions = ['Mọi mức giá', 'Dưới 200k', '200k - 300k', 'Trên 300k']
 
 const imageBySport = [
   { keyword: 'bóng đá', image: footballImage },
@@ -115,7 +46,7 @@ function getStatusLabel(status: Court['status']) {
   return 'Tạm đóng'
 }
 
-function getDemoPrice(court: Court, index: number) {
+function getEstimatedPrice(court: Court, index: number) {
   const sportName = court.sportName.toLowerCase()
 
   if (sportName.includes('tennis')) {
@@ -133,11 +64,29 @@ function getDemoPrice(court: Court, index: number) {
   return [300, 280, 250, 220, 180, 160][index % 6]
 }
 
+function matchesPriceFilter(price: number, selectedPrice: string) {
+  if (selectedPrice === 'Dưới 200k') {
+    return price < 200
+  }
+
+  if (selectedPrice === '200k - 300k') {
+    return price >= 200 && price <= 300
+  }
+
+  if (selectedPrice === 'Trên 300k') {
+    return price > 300
+  }
+
+  return true
+}
+
 export function CourtsPage() {
+  const [keywordInput, setKeywordInput] = useState('')
   const [keyword, setKeyword] = useState('')
   const [selectedSport, setSelectedSport] = useState('Tất cả')
+  const [selectedVenue, setSelectedVenue] = useState('Tất cả')
+  const [selectedStatus, setSelectedStatus] = useState('Tất cả')
   const [selectedPrice, setSelectedPrice] = useState(priceOptions[0])
-  const [selectedDistance, setSelectedDistance] = useState(distanceOptions[0])
   const [courts, setCourts] = useState<Court[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -165,55 +114,56 @@ export function CourtsPage() {
   }
 
   useEffect(() => {
-    let isMounted = true
-
-    getCourts({ status: 'Active' })
-      .then((response) => {
-        if (isMounted) {
-          setCourts(response)
-        }
-      })
-      .catch((err: unknown) => {
-        if (isMounted) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : 'Không tải được danh sách sân từ API.',
-          )
-          setCourts([])
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
+    void loadCourts('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const venueOptions = useMemo(() => {
+    const venues = Array.from(new Set(courts.map((court) => court.venueName))).sort()
+    return ['Tất cả', ...venues]
+  }, [courts])
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    void loadCourts(keyword)
+    setKeyword(keywordInput)
+    void loadCourts(keywordInput)
+  }
+
+  function handleResetFilters() {
+    setKeywordInput('')
+    setKeyword('')
+    setSelectedSport('Tất cả')
+    setSelectedVenue('Tất cả')
+    setSelectedStatus('Tất cả')
+    setSelectedPrice(priceOptions[0])
+    void loadCourts('')
   }
 
   const displayedCourts = useMemo(() => {
-    const source = courts.length > 0 ? courts : fallbackCourts
-
-    return source.filter((court) => {
+    return courts.filter((court, index) => {
+      const estimatedPrice = getEstimatedPrice(court, index)
       const matchesKeyword =
         !keyword.trim() ||
-        `${court.name} ${court.venueName} ${court.sportName}`
+        `${court.name} ${court.venueName} ${court.sportName} ${court.description ?? ''}`
           .toLowerCase()
           .includes(keyword.trim().toLowerCase())
       const matchesSport =
         selectedSport === 'Tất cả' || court.sportName === selectedSport
+      const matchesVenue =
+        selectedVenue === 'Tất cả' || court.venueName === selectedVenue
+      const matchesStatus =
+        selectedStatus === 'Tất cả' || getStatusLabel(court.status) === selectedStatus
+      const matchesPrice = matchesPriceFilter(estimatedPrice, selectedPrice)
 
-      return matchesKeyword && matchesSport
+      return (
+        matchesKeyword &&
+        matchesSport &&
+        matchesVenue &&
+        matchesStatus &&
+        matchesPrice
+      )
     })
-  }, [courts, keyword, selectedSport])
+  }, [courts, keyword, selectedPrice, selectedSport, selectedStatus, selectedVenue])
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] text-[#191c1e]">
@@ -222,15 +172,15 @@ export function CourtsPage() {
           onSubmit={handleSearch}
           className="rounded-xl border border-[#bccbb9] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
         >
-          <div className="grid gap-4 lg:grid-cols-[2fr_0.8fr_0.8fr_0.8fr_48px] lg:items-end">
+          <div className="grid gap-4 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] lg:items-end">
             <FilterField label="Tìm kiếm sân">
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#3d4a3d]">
                   ⌕
                 </span>
                 <input
-                  value={keyword}
-                  onChange={(event) => setKeyword(event.target.value)}
+                  value={keywordInput}
+                  onChange={(event) => setKeywordInput(event.target.value)}
                   placeholder="Nhập tên sân hoặc địa điểm..."
                   className="h-12 w-full rounded-lg bg-[#eceef0] px-10 text-base text-[#191c1e] outline-none transition placeholder:text-[#6b7280] focus:ring-2 focus:ring-[#006e2f]/30"
                 />
@@ -245,6 +195,22 @@ export function CourtsPage() {
               />
             </FilterField>
 
+            <FilterField label="Cụm sân">
+              <SelectField
+                value={selectedVenue}
+                options={venueOptions}
+                onChange={setSelectedVenue}
+              />
+            </FilterField>
+
+            <FilterField label="Trạng thái">
+              <SelectField
+                value={selectedStatus}
+                options={statusOptions}
+                onChange={setSelectedStatus}
+              />
+            </FilterField>
+
             <FilterField label="Giá thuê">
               <SelectField
                 value={selectedPrice}
@@ -252,22 +218,25 @@ export function CourtsPage() {
                 onChange={setSelectedPrice}
               />
             </FilterField>
+          </div>
 
-            <FilterField label="Khoảng cách">
-              <SelectField
-                value={selectedDistance}
-                options={distanceOptions}
-                onChange={setSelectedDistance}
-              />
-            </FilterField>
-
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             <button
               type="submit"
-              className="flex h-12 items-center justify-center rounded-lg bg-[#006e2f] text-white transition hover:bg-[#005321]"
-              aria-label="Tìm kiếm"
+              className="rounded-lg bg-[#006e2f] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#005321]"
             >
-              →
+              Áp dụng bộ lọc
             </button>
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-semibold text-[#3d4a3d] transition hover:bg-[#f2f4f6]"
+            >
+              Xóa bộ lọc
+            </button>
+            <span className="text-sm text-[#3d4a3d]">
+              Hiển thị <strong>{displayedCourts.length}</strong> sân phù hợp
+            </span>
           </div>
         </form>
 
@@ -291,7 +260,7 @@ export function CourtsPage() {
 
         {error ? (
           <div className="mb-6 rounded-xl border border-[#ffdad6] bg-[#ffdad6] px-4 py-3 text-sm font-medium text-[#93000a]">
-            {error}. Đang hiển thị dữ liệu mẫu để kiểm tra giao diện.
+            {error}
           </div>
         ) : null}
 
@@ -314,25 +283,11 @@ export function CourtsPage() {
 
         {!isLoading && displayedCourts.length === 0 ? (
           <div className="rounded-xl border border-[#bccbb9] bg-white p-10 text-center text-[#3d4a3d]">
-            Không tìm thấy sân phù hợp.
+            {error
+              ? 'Chưa thể tải danh sách sân. Vui lòng thử lại sau.'
+              : 'Không tìm thấy sân phù hợp với bộ lọc hiện tại.'}
           </div>
         ) : null}
-
-        <div className="mt-10 flex justify-center gap-2">
-          {[1, 2, 3].map((page) => (
-            <button
-              key={page}
-              className={[
-                'h-10 w-10 rounded-full border text-sm font-semibold',
-                page === 1
-                  ? 'border-[#006e2f] bg-[#006e2f] text-white'
-                  : 'border-[#bccbb9] bg-white text-[#3d4a3d]',
-              ].join(' ')}
-            >
-              {page}
-            </button>
-          ))}
-        </div>
       </section>
     </div>
   )
@@ -380,17 +335,19 @@ function SelectField({
 }
 
 function CourtCard({ court, index }: { court: Court; index: number }) {
-  const price = getDemoPrice(court, index)
+  const price = getEstimatedPrice(court, index)
   const isActive = court.status === 1
 
   return (
     <article className="overflow-hidden rounded-xl border border-[#bccbb9] bg-white shadow-[0_4px_12px_rgba(30,41,59,0.05)] transition hover:-translate-y-1 hover:shadow-[0_8px_20px_rgba(30,41,59,0.08)]">
       <div className="relative h-48 overflow-hidden">
-        <img
-          src={getCourtImage(court)}
-          alt={court.name}
-          className="h-full w-full object-cover"
-        />
+        <Link to={`/courts/${court.id}`} className="block h-full">
+          <img
+            src={getCourtImage(court)}
+            alt={court.name}
+            className="h-full w-full object-cover"
+          />
+        </Link>
         <span
           className={[
             'absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold backdrop-blur',
@@ -412,9 +369,12 @@ function CourtCard({ court, index }: { court: Court; index: number }) {
 
       <div className="p-6">
         <div className="flex items-start justify-between gap-3">
-          <h2 className="line-clamp-2 text-sm font-semibold tracking-[0.01em]">
+          <Link
+            to={`/courts/${court.id}`}
+            className="line-clamp-2 text-sm font-semibold tracking-[0.01em] hover:text-[#006e2f]"
+          >
             {court.name}
-          </h2>
+          </Link>
           <div className="flex items-center gap-1 text-xs font-bold text-[#855300]">
             ★ <span>4.{8 - (index % 3)}</span>
           </div>

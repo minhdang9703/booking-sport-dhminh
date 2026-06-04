@@ -14,19 +14,6 @@ import {
   type Court,
 } from '../lib/courtsApi'
 
-const demoCourt: Court = {
-  id: 'football-demo',
-  venueId: 'demo',
-  venueName: 'Phường 25, Bình Thạnh, TP. HCM',
-  sportId: 'demo',
-  sportName: 'Sân bóng đá',
-  name: 'Sân Vận Động Bình Thạnh - Sân 7 Người',
-  status: 1,
-  description:
-    'Sân cỏ nhân tạo đạt chuẩn, phù hợp các trận đấu phong trào và bán chuyên. Hệ thống thoát nước hiện đại giúp mặt sân ổn định trong nhiều điều kiện thời tiết.',
-  createdAt: new Date().toISOString(),
-}
-
 const facilities = [
   { title: 'Gửi xe', description: 'Miễn phí và rộng rãi', icon: 'P' },
   { title: 'Nước uống', description: 'Nước lọc miễn phí', icon: 'W' },
@@ -52,7 +39,7 @@ function formatCurrency(value: number) {
 
 function getMinPrice(schedules: AvailableSchedule[]) {
   if (schedules.length === 0) {
-    return 300000
+    return 0
   }
 
   return Math.min(...schedules.map((schedule) => schedule.price))
@@ -73,13 +60,8 @@ export function CourtDetailPage() {
     let isMounted = true
 
     if (!courtId) {
-      Promise.resolve().then(() => {
-        if (isMounted) {
-          setCourt(demoCourt)
-          setIsLoadingCourt(false)
-        }
-      })
-
+      setError('Không tìm thấy sân hợp lệ.')
+      setIsLoadingCourt(false)
       return
     }
 
@@ -92,7 +74,7 @@ export function CourtDetailPage() {
       })
       .catch((err: unknown) => {
         if (isMounted) {
-          setCourt({ ...demoCourt, id: courtId })
+          setCourt(null)
           setError(
             err instanceof Error
               ? err.message
@@ -114,10 +96,13 @@ export function CourtDetailPage() {
   useEffect(() => {
     let isMounted = true
 
-    if (!courtId) {
+    if (!courtId || !court) {
+      setSchedules([])
+      setIsLoadingSchedules(false)
       return
     }
 
+    setIsLoadingSchedules(true)
     getAvailableSchedules(courtId, selectedDate)
       .then((response) => {
         if (isMounted) {
@@ -145,7 +130,7 @@ export function CourtDetailPage() {
     return () => {
       isMounted = false
     }
-  }, [courtId, selectedDate])
+  }, [court, courtId, selectedDate])
 
   const minPrice = useMemo(() => getMinPrice(schedules), [schedules])
   const selectedSchedule = schedules.find(
@@ -153,24 +138,18 @@ export function CourtDetailPage() {
   )
 
   function handleBookNow() {
-    if (!selectedSchedule || detail.status !== 1) {
+    if (!selectedSchedule || !court || court.status !== 1) {
       return
     }
 
     sessionStorage.setItem(
       'bookingSport.checkout',
       JSON.stringify({
-        court: detail,
+        court,
         schedule: selectedSchedule,
       }),
     )
     navigate('/checkout')
-  }
-
-  function handleDateChange(value: string) {
-    setSelectedDate(value)
-    setSelectedScheduleId('')
-    setIsLoadingSchedules(true)
   }
 
   if (isLoadingCourt) {
@@ -181,7 +160,24 @@ export function CourtDetailPage() {
     )
   }
 
-  const detail = court ?? demoCourt
+  if (!court) {
+    return (
+      <main className="min-h-screen bg-[#f7f9fb] px-4 pb-16 pt-24 text-[#191c1e] sm:px-6">
+        <div className="mx-auto max-w-2xl rounded-xl bg-white p-8 text-center shadow-sm">
+          <h1 className="text-2xl font-bold">Không thể mở chi tiết sân</h1>
+          <p className="mt-3 text-[#3d4a3d]">
+            {error || 'Sân không tồn tại hoặc dữ liệu chưa sẵn sàng.'}
+          </p>
+          <Link
+            to="/courts"
+            className="mt-6 inline-flex rounded-lg bg-[#006e2f] px-5 py-3 font-bold text-white"
+          >
+            Quay lại danh sách sân
+          </Link>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-[#f7f9fb] text-[#191c1e]">
@@ -192,20 +188,20 @@ export function CourtDetailPage() {
           </Link>
           <span>/</span>
           <Link to="/courts" className="hover:text-[#006e2f]">
-            {detail.sportName || 'Sân thể thao'}
+            {court.sportName || 'Sân thể thao'}
           </Link>
           <span>/</span>
-          <span className="font-semibold text-[#006e2f]">{detail.name}</span>
+          <span className="font-semibold text-[#006e2f]">{court.name}</span>
         </nav>
 
         <section className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="max-w-4xl text-3xl font-bold leading-tight tracking-[-0.01em] sm:text-4xl">
-              {detail.name}
+              {court.name}
             </h1>
             <div className="mt-3 flex flex-wrap gap-4 text-[#3d4a3d]">
               <span className="font-bold text-[#855300]">★ 4.8 (120 đánh giá)</span>
-              <span>📍 {detail.venueName || 'Địa điểm đang cập nhật'}</span>
+              <span>📍 {court.venueName || 'Địa điểm đang cập nhật'}</span>
             </div>
           </div>
 
@@ -221,13 +217,13 @@ export function CourtDetailPage() {
 
         {error ? (
           <div className="mt-6 rounded-xl border border-[#ffdad6] bg-[#ffdad6] px-4 py-3 text-sm font-medium text-[#93000a]">
-            {error}. Đang hiển thị dữ liệu mẫu để kiểm tra giao diện.
+            {error}
           </div>
         ) : null}
 
         <section className="mt-8 grid h-auto gap-4 overflow-hidden rounded-xl lg:h-[500px] lg:grid-cols-2">
           <div className="relative min-h-[280px] overflow-hidden lg:min-h-full">
-            <img src={galleryMain} alt={detail.name} className="h-full w-full object-cover" />
+            <img src={galleryMain} alt={court.name} className="h-full w-full object-cover" />
             <div className="absolute inset-0 bg-black/10" />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -235,7 +231,7 @@ export function CourtDetailPage() {
               <div key={image} className="relative min-h-40 overflow-hidden">
                 <img
                   src={image}
-                  alt={`${detail.name} ${index + 1}`}
+                  alt={`${court.name} ${index + 1}`}
                   className="h-full w-full object-cover"
                 />
                 {index === galleryImages.length - 1 ? (
@@ -252,7 +248,7 @@ export function CourtDetailPage() {
           <div className="space-y-8">
             <InfoSection title="Chi tiết sân">
               <p className="text-lg leading-8 text-[#3d4a3d]">
-                {detail.description ||
+                {court.description ||
                   'Sân thể thao được thiết kế tối ưu cho các trận đấu phong trào và bán chuyên, với mặt sân chất lượng cao, khu vực chờ rộng rãi và hệ thống hỗ trợ đặt lịch nhanh.'}
               </p>
             </InfoSection>
@@ -291,13 +287,13 @@ export function CourtDetailPage() {
                 </p>
                 <div className="mt-1 flex items-baseline gap-1">
                   <span className="text-3xl font-bold text-[#006e2f]">
-                    {formatCurrency(minPrice)}
+                    {minPrice > 0 ? formatCurrency(minPrice) : '--'}
                   </span>
                   <span className="text-sm text-[#3d4a3d]">VND/giờ</span>
                 </div>
               </div>
               <span className="rounded-full bg-[#d5e0f8] px-3 py-1 text-xs font-bold text-[#586377]">
-                {detail.status === 1 ? 'Đang mở' : 'Tạm đóng'}
+                {court.status === 1 ? 'Đang mở' : 'Tạm đóng'}
               </span>
             </div>
 
@@ -310,7 +306,10 @@ export function CourtDetailPage() {
                 type="date"
                 min={getToday()}
                 value={selectedDate}
-                onChange={(event) => handleDateChange(event.target.value)}
+                onChange={(event) => {
+                  setSelectedDate(event.target.value)
+                  setSelectedScheduleId('')
+                }}
                 className="mt-2 h-12 w-full rounded-lg bg-[#f7f9fb] px-4 outline-none ring-1 ring-[#bccbb9] focus:ring-2 focus:ring-[#006e2f]/30"
               />
             </div>
@@ -353,13 +352,13 @@ export function CourtDetailPage() {
             <button
               type="button"
               onClick={handleBookNow}
-              disabled={!selectedScheduleId || detail.status !== 1}
+              disabled={!selectedScheduleId || court.status !== 1}
               className="mt-6 w-full rounded-lg bg-[#006e2f] py-4 text-lg font-bold text-white shadow-[0_10px_15px_-3px_rgba(0,110,47,0.2)] transition hover:bg-[#005321] disabled:cursor-not-allowed disabled:bg-[#bccbb9]"
             >
               Đặt sân ngay
             </button>
             <Link
-              to={`/courts/${courtId ?? detail.id}/availability`}
+              to={`/courts/${courtId}/availability`}
               className="mt-3 flex w-full items-center justify-center rounded-lg border border-[#006e2f] py-3 text-sm font-bold text-[#006e2f] transition hover:bg-[#006e2f]/10"
             >
               Xem lịch trống theo ngày
