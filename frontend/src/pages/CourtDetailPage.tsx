@@ -17,23 +17,23 @@ import {
 const demoCourt: Court = {
   id: 'football-demo',
   venueId: 'demo',
-  venueName: 'Phuong 25, Binh Thanh, TP. HCM',
+  venueName: 'Phường 25, Bình Thạnh, TP. HCM',
   sportId: 'demo',
-  sportName: 'San bong da',
-  name: 'San Van Dong Binh Thanh - San 7 Nguoi',
+  sportName: 'Sân bóng đá',
+  name: 'Sân Vận Động Bình Thạnh - Sân 7 Người',
   status: 1,
   description:
-    'San co nhan tao dat chuan, phu hop cac tran dau phong trao va ban chuyen. He thong thoat nuoc hien dai giup mat san on dinh trong nhieu dieu kien thoi tiet.',
+    'Sân cỏ nhân tạo đạt chuẩn, phù hợp các trận đấu phong trào và bán chuyên. Hệ thống thoát nước hiện đại giúp mặt sân ổn định trong nhiều điều kiện thời tiết.',
   createdAt: new Date().toISOString(),
 }
 
 const facilities = [
-  { title: 'Gui xe', description: 'Mien phi & rong rai', icon: 'P' },
-  { title: 'Nuoc uong', description: 'Nuoc loc mien phi', icon: 'W' },
-  { title: 'Den LED', description: 'Do sang cao', icon: 'L' },
-  { title: 'Phong thay do', description: 'Sach se, rieng tu', icon: 'R' },
-  { title: 'Ao bib', description: 'Cho thue theo tran', icon: 'B' },
-  { title: 'Wifi', description: 'Toc do cao', icon: 'F' },
+  { title: 'Gửi xe', description: 'Miễn phí và rộng rãi', icon: 'P' },
+  { title: 'Nước uống', description: 'Nước lọc miễn phí', icon: 'W' },
+  { title: 'Đèn LED', description: 'Độ sáng cao', icon: 'L' },
+  { title: 'Phòng thay đồ', description: 'Sạch sẽ, riêng tư', icon: 'R' },
+  { title: 'Áo bib', description: 'Cho thuê theo trận', icon: 'B' },
+  { title: 'Wifi', description: 'Tốc độ cao', icon: 'F' },
 ]
 
 const galleryImages = [galleryOne, galleryTwo, galleryThree, galleryFour]
@@ -96,7 +96,7 @@ export function CourtDetailPage() {
           setError(
             err instanceof Error
               ? err.message
-              : 'Khong tai duoc chi tiet san tu API.',
+              : 'Không tải được chi tiết sân từ API.',
           )
         }
       })
@@ -132,7 +132,7 @@ export function CourtDetailPage() {
           setError(
             err instanceof Error
               ? err.message
-              : 'Khong tai duoc lich trong tu API.',
+              : 'Không tải được lịch trống từ API.',
           )
         }
       })
@@ -188,11 +188,11 @@ export function CourtDetailPage() {
       <div className="mx-auto max-w-[1280px] px-4 pb-12 pt-24 sm:px-6">
         <nav className="flex flex-wrap items-center gap-2 text-sm text-[#3d4a3d]">
           <Link to="/" className="hover:text-[#006e2f]">
-            Trang chu
+            Trang chủ
           </Link>
           <span>/</span>
           <Link to="/courts" className="hover:text-[#006e2f]">
-            {detail.sportName || 'San the thao'}
+            {detail.sportName || 'Sân thể thao'}
           </Link>
           <span>/</span>
           <span className="font-semibold text-[#006e2f]">{detail.name}</span>
@@ -204,24 +204,24 @@ export function CourtDetailPage() {
               {detail.name}
             </h1>
             <div className="mt-3 flex flex-wrap gap-4 text-[#3d4a3d]">
-              <span className="font-bold text-[#855300]">★ 4.8 (120 danh gia)</span>
-              <span>📍 {detail.venueName || 'Dia diem dang cap nhat'}</span>
+              <span className="font-bold text-[#855300]">★ 4.8 (120 đánh giá)</span>
+              <span>📍 {detail.venueName || 'Địa điểm đang cập nhật'}</span>
             </div>
           </div>
 
           <div className="flex gap-2">
             <button className="rounded-lg border border-[#bccbb9] bg-white px-4 py-2 text-sm font-semibold">
-              Chia se
+              Chia sẻ
             </button>
             <button className="rounded-lg border border-[#bccbb9] bg-white px-4 py-2 text-sm font-semibold">
-              Luu
+              Lưu
             </button>
           </div>
         </section>
 
         {error ? (
           <div className="mt-6 rounded-xl border border-[#ffdad6] bg-[#ffdad6] px-4 py-3 text-sm font-medium text-[#93000a]">
-            {error}. Dang hien thi du lieu mau de kiem tra giao dien.
+            {error}. Đang hiển thị dữ liệu mẫu để kiểm tra giao diện.
           </div>
         ) : null}
 
@@ -240,7 +240,7 @@ export function CourtDetailPage() {
                 />
                 {index === galleryImages.length - 1 ? (
                   <button className="absolute inset-0 flex items-center justify-center bg-black/50 text-base font-bold text-white">
-                    Xem tat ca anh
+                    Xem tất cả ảnh
                   </button>
                 ) : null}
               </div>
@@ -250,14 +250,14 @@ export function CourtDetailPage() {
 
         <section className="mt-10 grid gap-8 lg:grid-cols-[1fr_390px]">
           <div className="space-y-8">
-            <InfoSection title="Chi tiet san">
+            <InfoSection title="Chi tiết sân">
               <p className="text-lg leading-8 text-[#3d4a3d]">
                 {detail.description ||
-                  'San the thao duoc thiet ke toi uu cho cac tran dau phong trao va ban chuyen, voi mat san chat luong cao, khu vuc cho rong rai va he thong ho tro dat lich nhanh.'}
+                  'Sân thể thao được thiết kế tối ưu cho các trận đấu phong trào và bán chuyên, với mặt sân chất lượng cao, khu vực chờ rộng rãi và hệ thống hỗ trợ đặt lịch nhanh.'}
               </p>
             </InfoSection>
 
-            <InfoSection title="Tien ich co so">
+            <InfoSection title="Tiện ích cơ sở">
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {facilities.map((facility) => (
                   <div
@@ -276,9 +276,9 @@ export function CourtDetailPage() {
               </div>
             </InfoSection>
 
-            <InfoSection title="Vi tri san">
+            <InfoSection title="Vị trí sân">
               <div className="overflow-hidden rounded-xl border border-[#bccbb9] bg-white shadow-sm">
-                <img src={mapImage} alt="Ban do vi tri san" className="h-80 w-full object-cover" />
+                <img src={mapImage} alt="Bản đồ vị trí sân" className="h-80 w-full object-cover" />
               </div>
             </InfoSection>
           </div>
@@ -287,23 +287,23 @@ export function CourtDetailPage() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#3d4a3d]">
-                  Gia tu
+                  Giá từ
                 </p>
                 <div className="mt-1 flex items-baseline gap-1">
                   <span className="text-3xl font-bold text-[#006e2f]">
                     {formatCurrency(minPrice)}
                   </span>
-                  <span className="text-sm text-[#3d4a3d]">VND/gio</span>
+                  <span className="text-sm text-[#3d4a3d]">VND/giờ</span>
                 </div>
               </div>
               <span className="rounded-full bg-[#d5e0f8] px-3 py-1 text-xs font-bold text-[#586377]">
-                {detail.status === 1 ? 'Dang mo' : 'Tam dong'}
+                {detail.status === 1 ? 'Đang mở' : 'Tạm đóng'}
               </span>
             </div>
 
             <div className="mt-6">
               <label className="text-sm font-bold text-[#191c1e]" htmlFor="booking-date">
-                Ngay dat san
+                Ngày đặt sân
               </label>
               <input
                 id="booking-date"
@@ -317,9 +317,9 @@ export function CourtDetailPage() {
 
             <div className="mt-6 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-[#191c1e]">Khung gio trong</p>
+                <p className="text-sm font-bold text-[#191c1e]">Khung giờ trống</p>
                 {isLoadingSchedules ? (
-                  <span className="text-xs text-[#3d4a3d]">Dang tai...</span>
+                  <span className="text-xs text-[#3d4a3d]">Đang tải...</span>
                 ) : null}
               </div>
               {schedules.length > 0 ? (
@@ -356,7 +356,7 @@ export function CourtDetailPage() {
               disabled={!selectedScheduleId || detail.status !== 1}
               className="mt-6 w-full rounded-lg bg-[#006e2f] py-4 text-lg font-bold text-white shadow-[0_10px_15px_-3px_rgba(0,110,47,0.2)] transition hover:bg-[#005321] disabled:cursor-not-allowed disabled:bg-[#bccbb9]"
             >
-              Dat san ngay
+              Đặt sân ngay
             </button>
             <Link
               to={`/courts/${courtId ?? detail.id}/availability`}
@@ -365,7 +365,7 @@ export function CourtDetailPage() {
               Xem lịch trống theo ngày
             </Link>
             <p className="mt-4 text-center text-xs text-[#3d4a3d]">
-              Chua thanh toan o buoc nay. Ban se xac nhan chi tiet o man hinh tiep theo.
+              Chưa thanh toán ở bước này. Bạn sẽ xác nhận chi tiết ở màn hình tiếp theo.
             </p>
           </aside>
         </section>

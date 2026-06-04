@@ -23,7 +23,7 @@ export function LoginPage() {
       saveAuthSession(response)
       navigate(isAdminUser(response.user) ? '/admin' : '/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Dang nhap that bai.')
+      setError(err instanceof Error ? err.message : 'Đăng nhập thất bại.')
     } finally {
       setIsSubmitting(false)
     }
@@ -32,12 +32,12 @@ export function LoginPage() {
   return (
     <AuthShell
       activeMode="login"
-      eyebrow="Dang nhap"
-      title="Chao mung tro lai"
-      description="Vui long nhap thong tin de truy cap he thong."
-      switchText="Chua co tai khoan?"
+      eyebrow="Đăng nhập"
+      title="Chào mừng trở lại"
+      description="Vui lòng nhập thông tin để truy cập hệ thống."
+      switchText="Chưa có tài khoản?"
       switchHref="/register"
-      switchLabel="Dang ky ngay"
+      switchLabel="Đăng ký ngay"
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
         {error ? <FormAlert tone="error" message={error} /> : null}
@@ -54,11 +54,11 @@ export function LoginPage() {
         />
 
         <FormField
-          label="Mat khau"
+          label="Mật khẩu"
           name="password"
           type="password"
           value={password}
-          placeholder="Nhap mat khau"
+          placeholder="Nhập mật khẩu"
           autoComplete="current-password"
           required
           onChange={setPassword}
@@ -70,13 +70,13 @@ export function LoginPage() {
               type="checkbox"
               className="h-4 w-4 rounded border-[#bccbb9] text-[#006e2f] focus:ring-[#006e2f]"
             />
-            Ghi nho dang nhap
+            Ghi nhớ đăng nhập
           </label>
           <button
             type="button"
             className="text-xs font-bold text-[#006e2f] hover:text-[#004b1e]"
           >
-            Quen mat khau?
+            Quên mật khẩu?
           </button>
         </div>
 
@@ -85,7 +85,7 @@ export function LoginPage() {
           disabled={isSubmitting}
           className="w-full rounded-lg bg-[#006e2f] px-5 py-3 text-base font-semibold text-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)] transition hover:bg-[#005321] disabled:cursor-not-allowed disabled:bg-[#6d7b6c]"
         >
-          {isSubmitting ? 'Dang dang nhap...' : 'Dang nhap'}
+          {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </button>
       </form>
     </AuthShell>

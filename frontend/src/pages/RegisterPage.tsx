@@ -23,7 +23,7 @@ export function RegisterPage() {
     setSuccess('')
 
     if (password !== confirmPassword) {
-      setError('Mat khau xac nhan khong khop.')
+      setError('Mật khẩu xác nhận không khớp.')
       return
     }
 
@@ -38,10 +38,10 @@ export function RegisterPage() {
       })
 
       saveAuthSession(response)
-      setSuccess('Dang ky thanh cong. Dang chuyen ve trang chu...')
+      setSuccess('Đăng ký thành công. Đang chuyển về trang chủ...')
       navigate('/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Dang ky that bai.')
+      setError(err instanceof Error ? err.message : 'Đăng ký thất bại.')
     } finally {
       setIsSubmitting(false)
     }
@@ -50,22 +50,22 @@ export function RegisterPage() {
   return (
     <AuthShell
       activeMode="register"
-      eyebrow="Dang ky"
-      title="Tao tai khoan moi"
-      description="Tao tai khoan customer de dat san va theo doi lich da giu cho."
-      switchText="Da co tai khoan?"
+      eyebrow="Đăng ký"
+      title="Tạo tài khoản mới"
+      description="Tạo tài khoản khách hàng để đặt sân và theo dõi lịch đã giữ chỗ."
+      switchText="Đã có tài khoản?"
       switchHref="/login"
-      switchLabel="Dang nhap"
+      switchLabel="Đăng nhập"
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
         {error ? <FormAlert tone="error" message={error} /> : null}
         {success ? <FormAlert tone="success" message={success} /> : null}
 
         <FormField
-          label="Ho va ten"
+          label="Họ và tên"
           name="fullName"
           value={fullName}
-          placeholder="Nguyen Van A"
+          placeholder="Nguyễn Văn A"
           autoComplete="name"
           required
           onChange={setFullName}
@@ -83,7 +83,7 @@ export function RegisterPage() {
         />
 
         <FormField
-          label="So dien thoai"
+          label="Số điện thoại"
           name="phoneNumber"
           type="tel"
           value={phoneNumber}
@@ -94,22 +94,22 @@ export function RegisterPage() {
 
         <div className="grid gap-5 sm:grid-cols-2">
           <FormField
-            label="Mat khau"
+            label="Mật khẩu"
             name="password"
             type="password"
             value={password}
-            placeholder="Nhap mat khau"
+            placeholder="Nhập mật khẩu"
             autoComplete="new-password"
             required
             onChange={setPassword}
           />
 
           <FormField
-            label="Xac nhan mat khau"
+            label="Xác nhận mật khẩu"
             name="confirmPassword"
             type="password"
             value={confirmPassword}
-            placeholder="Nhap lai mat khau"
+            placeholder="Nhập lại mật khẩu"
             autoComplete="new-password"
             required
             onChange={setConfirmPassword}
@@ -121,7 +121,7 @@ export function RegisterPage() {
           disabled={isSubmitting}
           className="w-full rounded-lg bg-[#006e2f] px-5 py-3 text-base font-semibold text-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1)] transition hover:bg-[#005321] disabled:cursor-not-allowed disabled:bg-[#6d7b6c]"
         >
-          {isSubmitting ? 'Dang tao tai khoan...' : 'Tao tai khoan'}
+          {isSubmitting ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
         </button>
       </form>
     </AuthShell>

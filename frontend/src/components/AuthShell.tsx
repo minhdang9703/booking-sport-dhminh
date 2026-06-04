@@ -41,9 +41,8 @@ export function AuthShell({
             Nâng Tầm Trải Nghiệm Thể Thao
           </h2>
           <p className="mt-6 max-w-xl text-lg leading-8 text-white/90">
-            Nền tảng quản lý và đặt sân vận động hàng đầu. Tiết kiệm thời
-            gian, tối ưu hóa hiệu suất và kết nối cộng đồng yêu thể thao của
-            bạn.
+            Nền tảng quản lý và đặt sân vận động hàng đầu. Tiết kiệm thời gian,
+            tối ưu hóa hiệu suất và kết nối cộng đồng yêu thể thao của bạn.
           </p>
 
           <div className="mt-10 flex gap-10">

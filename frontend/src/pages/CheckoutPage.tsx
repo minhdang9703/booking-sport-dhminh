@@ -12,9 +12,9 @@ type CheckoutState = {
 }
 
 const paymentMethods = [
-  { id: 'wallet', label: 'Vi dien tu', icon: '◈' },
-  { id: 'bank', label: 'Chuyen khoan', icon: '▣' },
-  { id: 'cash', label: 'Tai san', icon: '●' },
+  { id: 'wallet', label: 'Ví điện tử', icon: '◇' },
+  { id: 'bank', label: 'Chuyển khoản', icon: '▣' },
+  { id: 'cash', label: 'Tại sân', icon: '●' },
 ]
 
 function readCheckoutState(): CheckoutState | null {
