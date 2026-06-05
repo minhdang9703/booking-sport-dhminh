@@ -28,8 +28,8 @@ const imageBySport = [
 ]
 
 function getCourtImage(court: Court) {
-  const sportName = court.sportName.toLowerCase()
-  const match = imageBySport.find((item) => sportName.includes(item.keyword))
+  const courtType = court.courtType.toLowerCase()
+  const match = imageBySport.find((item) => courtType.includes(item.keyword))
 
   return match?.image ?? footballImage
 }
@@ -47,17 +47,17 @@ function getStatusLabel(status: Court['status']) {
 }
 
 function getEstimatedPrice(court: Court, index: number) {
-  const sportName = court.sportName.toLowerCase()
+  const courtType = court.courtType.toLowerCase()
 
-  if (sportName.includes('tennis')) {
+  if (courtType.includes('tennis')) {
     return 280
   }
 
-  if (sportName.includes('bóng rổ') || sportName.includes('basketball')) {
+  if (courtType.includes('bóng rổ') || courtType.includes('basketball')) {
     return 250
   }
 
-  if (sportName.includes('cầu lông') || sportName.includes('badminton')) {
+  if (courtType.includes('cầu lông') || courtType.includes('badminton')) {
     return 180
   }
 
@@ -119,7 +119,7 @@ export function CourtsPage() {
   }, [])
 
   const venueOptions = useMemo(() => {
-    const venues = Array.from(new Set(courts.map((court) => court.venueName))).sort()
+    const venues = Array.from(new Set(courts.map((court) => court.courtType))).sort()
     return ['Tất cả', ...venues]
   }, [courts])
 
@@ -144,13 +144,13 @@ export function CourtsPage() {
       const estimatedPrice = getEstimatedPrice(court, index)
       const matchesKeyword =
         !keyword.trim() ||
-        `${court.name} ${court.venueName} ${court.sportName} ${court.description ?? ''}`
+        `${court.name} ${court.courtType}`
           .toLowerCase()
           .includes(keyword.trim().toLowerCase())
       const matchesSport =
-        selectedSport === 'Tất cả' || court.sportName === selectedSport
+        selectedSport === 'Tất cả' || court.courtType === selectedSport
       const matchesVenue =
-        selectedVenue === 'Tất cả' || court.venueName === selectedVenue
+        selectedVenue === 'Tất cả' || court.courtType === selectedVenue
       const matchesStatus =
         selectedStatus === 'Tất cả' || getStatusLabel(court.status) === selectedStatus
       const matchesPrice = matchesPriceFilter(estimatedPrice, selectedPrice)
@@ -356,7 +356,7 @@ function CourtCard({ court, index }: { court: Court; index: number }) {
               : 'bg-[#ef9900] text-[#5c3800]',
           ].join(' ')}
         >
-          {court.sportName || 'Thể thao'}
+          {court.courtType || 'Thể thao'}
         </span>
         <button
           type="button"
@@ -381,11 +381,11 @@ function CourtCard({ court, index }: { court: Court; index: number }) {
         </div>
 
         <p className="mt-3 line-clamp-1 text-sm text-[#3d4a3d]">
-          📍 {court.venueName || 'Địa điểm đang cập nhật'}
+          {court.courtType || 'Sân thể thao'}
         </p>
 
         <p className="mt-3 line-clamp-2 min-h-10 text-sm text-[#3d4a3d]">
-          {court.description || 'Sân thể thao đang sẵn sàng cho lịch đặt mới.'}
+          {court.courtType || 'Sân thể thao đang sẵn sàng cho lịch đặt mới.'}
         </p>
 
         <div className="mt-6 flex items-center justify-between gap-4">

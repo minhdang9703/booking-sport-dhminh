@@ -61,33 +61,31 @@ public class UserService(
             return UserResult<UserResponse>.BadRequest("FullName is required.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Email))
-        {
-            return UserResult<UserResponse>.BadRequest("Email is required.");
-        }
-
         if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
         {
             return UserResult<UserResponse>.BadRequest("Password must have at least 6 characters.");
         }
 
-        var normalizedEmail = request.Email.Trim().ToLower();
-        var emailExists = await dbContext.Users
-            .AnyAsync(user => user.Email.ToLower() == normalizedEmail, cancellationToken);
-
-        if (emailExists)
+        if (string.IsNullOrWhiteSpace(request.PhoneNumber))
         {
-            return UserResult<UserResponse>.Conflict("Email is already used.");
+            return UserResult<UserResponse>.BadRequest("PhoneNumber is required.");
+        }
+
+        var phoneNumber = request.PhoneNumber.Trim();
+        var phoneExists = await dbContext.Users
+            .AnyAsync(user => user.PhoneNumber == phoneNumber, cancellationToken);
+
+        if (phoneExists)
+        {
+            return UserResult<UserResponse>.Conflict("PhoneNumber is already used.");
         }
 
         var user = new User
         {
             Id = Guid.NewGuid(),
             FullName = request.FullName.Trim(),
-            Email = normalizedEmail,
-            PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber)
-                ? null
-                : request.PhoneNumber.Trim(),
+            Email = request.Email.Trim().ToLower(),
+            PhoneNumber = phoneNumber,
             Role = request.Role,
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -117,10 +115,24 @@ public class UserService(
             return UserResult<UserResponse>.NotFound("User was not found.");
         }
 
+        if (string.IsNullOrWhiteSpace(request.PhoneNumber))
+        {
+            return UserResult<UserResponse>.BadRequest("PhoneNumber is required.");
+        }
+
+        var phoneNumber = request.PhoneNumber.Trim();
+        var phoneExists = await dbContext.Users.AnyAsync(otherUser =>
+            otherUser.Id != user.Id &&
+            otherUser.PhoneNumber == phoneNumber,
+            cancellationToken);
+
+        if (phoneExists)
+        {
+            return UserResult<UserResponse>.Conflict("PhoneNumber is already used.");
+        }
+
         user.FullName = request.FullName.Trim();
-        user.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber)
-            ? null
-            : request.PhoneNumber.Trim();
+        user.PhoneNumber = phoneNumber;
         user.Role = request.Role;
         user.UpdatedAt = DateTimeOffset.UtcNow;
 

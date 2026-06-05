@@ -11,19 +11,15 @@ import {
 } from '../lib/courtsApi'
 
 type CourtFormState = {
-  venueId: string
-  sportId: string
   name: string
+  courtType: string
   status: CourtStatus
-  description: string
 }
 
 const emptyForm: CourtFormState = {
-  venueId: '',
-  sportId: '',
   name: '',
+  courtType: 'Sân 5',
   status: 1,
-  description: '',
 }
 
 const statusOptions: Array<{ value: CourtStatus | 'all'; label: string }> = [
@@ -54,20 +50,6 @@ function getStatusMeta(status: CourtStatus) {
   }
 }
 
-function getUniqueOptions(
-  courts: Court[],
-  keyId: 'venueId' | 'sportId',
-  keyName: 'venueName' | 'sportName',
-) {
-  const map = new Map<string, string>()
-
-  courts.forEach((court) => {
-    map.set(court[keyId], court[keyName])
-  })
-
-  return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
-}
-
 export function AdminCourtsPage() {
   const [courts, setCourts] = useState<Court[]>([])
   const [keyword, setKeyword] = useState('')
@@ -82,52 +64,17 @@ export function AdminCourtsPage() {
   const [form, setForm] = useState<CourtFormState>(emptyForm)
 
   useEffect(() => {
-    let isMounted = true
-
-    getCourts()
-      .then((response) => {
-        if (isMounted) {
-          setCourts(response)
-        }
-      })
-      .catch((err: unknown) => {
-        if (isMounted) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : 'Không tải được danh sách sân.',
-          )
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
+    void reloadCourts()
   }, [])
-
-  const venueOptions = useMemo(
-    () => getUniqueOptions(courts, 'venueId', 'venueName'),
-    [courts],
-  )
-  const sportOptions = useMemo(
-    () => getUniqueOptions(courts, 'sportId', 'sportName'),
-    [courts],
-  )
 
   const filteredCourts = useMemo(() => {
     return courts.filter((court) => {
       const matchesKeyword =
         !keyword.trim() ||
-        `${court.name} ${court.venueName} ${court.sportName}`
+        `${court.name} ${court.courtType}`
           .toLowerCase()
           .includes(keyword.trim().toLowerCase())
-      const matchesStatus =
-        statusFilter === 'all' || court.status === statusFilter
+      const matchesStatus = statusFilter === 'all' || court.status === statusFilter
 
       return matchesKeyword && matchesStatus
     })
@@ -160,11 +107,7 @@ export function AdminCourtsPage() {
   function openCreateForm() {
     setEditingCourt(null)
     setIsFormOpen(true)
-    setForm({
-      ...emptyForm,
-      venueId: venueOptions[0]?.id ?? '',
-      sportId: sportOptions[0]?.id ?? '',
-    })
+    setForm(emptyForm)
     setSuccess('')
     setError('')
   }
@@ -173,11 +116,9 @@ export function AdminCourtsPage() {
     setEditingCourt(court)
     setIsFormOpen(true)
     setForm({
-      venueId: court.venueId,
-      sportId: court.sportId,
       name: court.name,
+      courtType: court.courtType,
       status: court.status,
-      description: court.description ?? '',
     })
     setSuccess('')
     setError('')
@@ -197,20 +138,10 @@ export function AdminCourtsPage() {
 
     try {
       if (editingCourt) {
-        await updateCourt(editingCourt.id, {
-          name: form.name,
-          status: form.status,
-          description: form.description || undefined,
-        })
+        await updateCourt(editingCourt.id, form)
         setSuccess('Cập nhật sân thành công.')
       } else {
-        await createCourt({
-          venueId: form.venueId,
-          sportId: form.sportId,
-          name: form.name,
-          status: form.status,
-          description: form.description || undefined,
-        })
+        await createCourt(form)
         setSuccess('Tạo sân mới thành công.')
       }
 
@@ -253,49 +184,25 @@ export function AdminCourtsPage() {
               Admin
             </p>
             <h1 className="mt-2 text-3xl font-bold tracking-[-0.01em]">
-              Quản lý sân bãi
+              Quản lý sân
             </h1>
             <p className="mt-2 text-[#3d4a3d]">
-              Theo dõi, tạo mới, cập nhật trạng thái và xóa mềm sân thể thao.
+              Tạo mới, cập nhật trạng thái và xóa mềm sân trong một địa điểm.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link
-              to="/admin/dashboard"
-              className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-bold text-[#3d4a3d] transition hover:border-[#006e2f] hover:text-[#006e2f]"
-            >
-              Dashboard
-            </Link>
-            <Link
-              to="/admin/bookings"
-              className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-bold text-[#3d4a3d] transition hover:border-[#006e2f] hover:text-[#006e2f]"
-            >
-              Booking
-            </Link>
-            <Link
-              to="/admin/bookings/calendar"
-              className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-bold text-[#3d4a3d] transition hover:border-[#006e2f] hover:text-[#006e2f]"
-            >
-              Lịch đặt sân
-            </Link>
-            <Link
-              to="/admin/revenue"
-              className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-bold text-[#3d4a3d] transition hover:border-[#006e2f] hover:text-[#006e2f]"
-            >
-              Doanh thu
-            </Link>
-            <Link
-              to="/admin/users"
-              className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-bold text-[#3d4a3d] transition hover:border-[#006e2f] hover:text-[#006e2f]"
-            >
-              User
-            </Link>
+            <AdminLink to="/admin/dashboard">Dashboard</AdminLink>
+            <AdminLink to="/admin/bookings">Booking</AdminLink>
+            <AdminLink to="/admin/bookings/calendar">Lịch đặt sân</AdminLink>
+            <AdminLink to="/admin/price-rules">Bảng giá</AdminLink>
+            <AdminLink to="/admin/revenue">Doanh thu</AdminLink>
+            <AdminLink to="/admin/users">User</AdminLink>
             <button
               type="button"
               onClick={openCreateForm}
               className="rounded-lg bg-[#006e2f] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#005321]"
             >
-              + Thêm sân mới
+              + Thêm sân
             </button>
           </div>
         </header>
@@ -316,7 +223,7 @@ export function AdminCourtsPage() {
               <input
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
-                placeholder="Nhập tên sân, cụm sân hoặc môn thể thao..."
+                placeholder="Nhập tên sân hoặc loại sân..."
                 className="mt-2 h-12 w-full rounded-lg bg-[#eceef0] px-4 outline-none focus:ring-2 focus:ring-[#006e2f]/30"
               />
             </label>
@@ -356,10 +263,9 @@ export function AdminCourtsPage() {
         {success ? <Alert tone="success" message={success} /> : null}
 
         <section className="mt-6 overflow-hidden rounded-xl border border-[#bccbb9] bg-white shadow-sm">
-          <div className="hidden grid-cols-[1.5fr_1fr_1fr_150px_180px] gap-4 border-b border-[#e0e3e5] bg-[#f2f4f6] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[#3d4a3d] lg:grid">
+          <div className="hidden grid-cols-[1.5fr_1fr_150px_180px] gap-4 border-b border-[#e0e3e5] bg-[#f2f4f6] px-5 py-3 text-xs font-bold uppercase tracking-[0.08em] text-[#3d4a3d] lg:grid">
             <span>Tên sân</span>
-            <span>Cụm sân</span>
-            <span>Môn</span>
+            <span>Loại sân</span>
             <span>Trạng thái</span>
             <span className="text-right">Thao tác</span>
           </div>
@@ -391,8 +297,6 @@ export function AdminCourtsPage() {
         <CourtFormModal
           form={form}
           editingCourt={editingCourt}
-          venueOptions={venueOptions}
-          sportOptions={sportOptions}
           isSaving={isSaving}
           onClose={closeForm}
           onSubmit={handleSubmit}
@@ -409,6 +313,17 @@ export function AdminCourtsPage() {
         />
       ) : null}
     </main>
+  )
+}
+
+function AdminLink({ to, children }: { to: string; children: string }) {
+  return (
+    <Link
+      to={to}
+      className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-bold text-[#3d4a3d] transition hover:border-[#006e2f] hover:text-[#006e2f]"
+    >
+      {children}
+    </Link>
   )
 }
 
@@ -448,15 +363,9 @@ function CourtRow({
   const status = getStatusMeta(court.status)
 
   return (
-    <div className="grid gap-4 border-b border-[#e0e3e5] px-5 py-5 last:border-b-0 lg:grid-cols-[1.5fr_1fr_1fr_150px_180px] lg:items-center">
-      <div>
-        <p className="font-bold">{court.name}</p>
-        <p className="mt-1 line-clamp-1 text-sm text-[#3d4a3d]">
-          {court.description || 'Chưa có mô tả'}
-        </p>
-      </div>
-      <p className="text-sm text-[#3d4a3d]">{court.venueName}</p>
-      <p className="text-sm font-semibold">{court.sportName}</p>
+    <div className="grid gap-4 border-b border-[#e0e3e5] px-5 py-5 last:border-b-0 lg:grid-cols-[1.5fr_1fr_150px_180px] lg:items-center">
+      <p className="font-bold">{court.name}</p>
+      <p className="text-sm font-semibold">{court.courtType}</p>
       <span
         className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${status.className}`}
       >
@@ -485,8 +394,6 @@ function CourtRow({
 function CourtFormModal({
   form,
   editingCourt,
-  venueOptions,
-  sportOptions,
   isSaving,
   onClose,
   onSubmit,
@@ -494,8 +401,6 @@ function CourtFormModal({
 }: {
   form: CourtFormState
   editingCourt: Court | null
-  venueOptions: Array<{ id: string; name: string }>
-  sportOptions: Array<{ id: string; name: string }>
   isSaving: boolean
   onClose: () => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
@@ -505,7 +410,7 @@ function CourtFormModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <form
         onSubmit={onSubmit}
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl"
+        className="w-full max-w-xl rounded-xl bg-white p-6 shadow-xl"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -513,9 +418,7 @@ function CourtFormModal({
               {editingCourt ? 'Cập nhật sân' : 'Thêm sân mới'}
             </h2>
             <p className="mt-1 text-sm text-[#3d4a3d]">
-              {editingCourt
-                ? 'Chỉ cập nhật tên, trạng thái và mô tả.'
-                : 'Chọn cụm sân và môn thể thao từ dữ liệu hiện có.'}
+              Quản lý tên sân, loại sân và trạng thái.
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-2xl">
@@ -524,30 +427,19 @@ function CourtFormModal({
         </div>
 
         <div className="mt-6 grid gap-5 sm:grid-cols-2">
-          {!editingCourt ? (
-            <>
-              <SelectInput
-                label="Cụm sân"
-                value={form.venueId}
-                options={venueOptions}
-                onChange={(venueId) => onChange({ ...form, venueId })}
-              />
-              <SelectInput
-                label="Môn thể thao"
-                value={form.sportId}
-                options={sportOptions}
-                onChange={(sportId) => onChange({ ...form, sportId })}
-              />
-            </>
-          ) : null}
-
           <TextInput
             label="Tên sân"
             value={form.name}
             required
             onChange={(name) => onChange({ ...form, name })}
           />
-          <label className="block">
+          <TextInput
+            label="Loại sân"
+            value={form.courtType}
+            required
+            onChange={(courtType) => onChange({ ...form, courtType })}
+          />
+          <label className="block sm:col-span-2">
             <span className="text-sm font-semibold text-[#3d4a3d]">Trạng thái</span>
             <select
               value={form.status}
@@ -567,17 +459,6 @@ function CourtFormModal({
                   </option>
                 ))}
             </select>
-          </label>
-
-          <label className="block sm:col-span-2">
-            <span className="text-sm font-semibold text-[#3d4a3d]">Mô tả</span>
-            <textarea
-              value={form.description}
-              onChange={(event) =>
-                onChange({ ...form, description: event.target.value })
-              }
-              className="mt-2 min-h-28 w-full rounded-lg border border-[#bccbb9] px-4 py-3 outline-none focus:ring-2 focus:ring-[#006e2f]/30"
-            />
           </label>
         </div>
 
@@ -663,37 +544,6 @@ function TextInput({
         onChange={(event) => onChange(event.target.value)}
         className="mt-2 h-12 w-full rounded-lg border border-[#bccbb9] px-4 outline-none focus:ring-2 focus:ring-[#006e2f]/30"
       />
-    </label>
-  )
-}
-
-function SelectInput({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  value: string
-  options: Array<{ id: string; name: string }>
-  onChange: (value: string) => void
-}) {
-  return (
-    <label className="block">
-      <span className="text-sm font-semibold text-[#3d4a3d]">{label}</span>
-      <select
-        value={value}
-        required
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-2 h-12 w-full rounded-lg border border-[#bccbb9] px-4 outline-none focus:ring-2 focus:ring-[#006e2f]/30"
-      >
-        {options.length === 0 ? <option value="">Chưa có dữ liệu</option> : null}
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.name}
-          </option>
-        ))}
-      </select>
     </label>
   )
 }

@@ -10,6 +10,7 @@ import mapImage from '../assets/court-detail/map.png'
 import {
   getAvailableSchedules,
   getCourtById,
+  getScheduleKey,
   type AvailableSchedule,
   type Court,
 } from '../lib/courtsApi'
@@ -42,7 +43,7 @@ function getMinPrice(schedules: AvailableSchedule[]) {
     return 0
   }
 
-  return Math.min(...schedules.map((schedule) => schedule.price))
+  return Math.min(...schedules.map((schedule) => schedule.hourlyPrice))
 }
 
 export function CourtDetailPage() {
@@ -134,7 +135,7 @@ export function CourtDetailPage() {
 
   const minPrice = useMemo(() => getMinPrice(schedules), [schedules])
   const selectedSchedule = schedules.find(
-    (schedule) => schedule.scheduleId === selectedScheduleId,
+    (schedule) => getScheduleKey(schedule) === selectedScheduleId,
   )
 
   function handleBookNow() {
@@ -188,7 +189,7 @@ export function CourtDetailPage() {
           </Link>
           <span>/</span>
           <Link to="/courts" className="hover:text-[#006e2f]">
-            {court.sportName || 'Sân thể thao'}
+            {court.courtType || 'Sân thể thao'}
           </Link>
           <span>/</span>
           <span className="font-semibold text-[#006e2f]">{court.name}</span>
@@ -201,7 +202,7 @@ export function CourtDetailPage() {
             </h1>
             <div className="mt-3 flex flex-wrap gap-4 text-[#3d4a3d]">
               <span className="font-bold text-[#855300]">★ 4.8 (120 đánh giá)</span>
-              <span>📍 {court.venueName || 'Địa điểm đang cập nhật'}</span>
+              <span>{court.courtType || 'Sân thể thao'}</span>
             </div>
           </div>
 
@@ -248,7 +249,7 @@ export function CourtDetailPage() {
           <div className="space-y-8">
             <InfoSection title="Chi tiết sân">
               <p className="text-lg leading-8 text-[#3d4a3d]">
-                {court.description ||
+                {court.courtType ||
                   'Sân thể thao được thiết kế tối ưu cho các trận đấu phong trào và bán chuyên, với mặt sân chất lượng cao, khu vực chờ rộng rãi và hệ thống hỗ trợ đặt lịch nhanh.'}
               </p>
             </InfoSection>
@@ -324,12 +325,12 @@ export function CourtDetailPage() {
               {schedules.length > 0 ? (
                 schedules.map((schedule) => (
                   <button
-                    key={schedule.scheduleId}
+                    key={getScheduleKey(schedule)}
                     type="button"
-                    onClick={() => setSelectedScheduleId(schedule.scheduleId)}
+                    onClick={() => setSelectedScheduleId(getScheduleKey(schedule))}
                     className={[
                       'flex w-full items-center justify-between rounded-lg p-3 text-left transition',
-                      selectedScheduleId === schedule.scheduleId
+                      selectedScheduleId === getScheduleKey(schedule)
                         ? 'bg-[#006e2f] text-white'
                         : 'bg-[#f7f9fb] text-[#191c1e] hover:bg-[#eceef0]',
                     ].join(' ')}
@@ -338,7 +339,7 @@ export function CourtDetailPage() {
                       {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
                     </span>
                     <span className="text-sm font-bold">
-                      {formatCurrency(schedule.price)}
+                      {formatCurrency(schedule.hourlyPrice)}
                     </span>
                   </button>
                 ))

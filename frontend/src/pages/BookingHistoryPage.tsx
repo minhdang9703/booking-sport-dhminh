@@ -22,48 +22,64 @@ const demoBookings: BookingResponse[] = [
     id: 'ab-9821',
     userId: 'demo',
     userName: 'Nguyễn Văn A',
-    courtScheduleId: 'demo',
+    courtId: '00000000-0000-0000-0000-000000003001',
     courtName: 'Sân Bóng Đá Mini A1 - Victory Arena',
     bookingDate: '2026-12-25',
+    startTime: '18:00:00',
+    endTime: '19:30:00',
+    hourlyPriceSnapshot: 300000,
     status: 2,
     totalPrice: 450000,
-    note: '18:00 - 19:30',
+    paymentType: 1,
+    note: 'Đặt sân buổi tối.',
     createdAt: new Date().toISOString(),
   },
   {
     id: 'ab-8742',
     userId: 'demo',
     userName: 'Nguyễn Văn A',
-    courtScheduleId: 'demo',
+    courtId: '00000000-0000-0000-0000-000000003003',
     courtName: 'Sân Tennis Cao Cấp - Central Park',
     bookingDate: '2026-12-15',
+    startTime: '08:00:00',
+    endTime: '10:00:00',
+    hourlyPriceSnapshot: 150000,
     status: 4,
     totalPrice: 300000,
-    note: '08:00 - 10:00',
+    paymentType: 2,
+    note: 'Đã hoàn thành.',
     createdAt: new Date().toISOString(),
   },
   {
     id: 'ab-9905',
     userId: 'demo',
     userName: 'Nguyễn Văn A',
-    courtScheduleId: 'demo',
+    courtId: '00000000-0000-0000-0000-000000003004',
     courtName: 'Nhà Thi Đấu Đa Năng - Sky Center',
     bookingDate: '2026-12-18',
+    startTime: '19:00:00',
+    endTime: '20:00:00',
+    hourlyPriceSnapshot: 220000,
     status: 1,
     totalPrice: 220000,
-    note: '19:00 - 20:00',
+    paymentType: 3,
+    note: 'Chờ xác nhận thanh toán.',
     createdAt: new Date().toISOString(),
   },
   {
     id: 'ab-7651',
     userId: 'demo',
     userName: 'Nguyễn Văn A',
-    courtScheduleId: 'demo',
+    courtId: '00000000-0000-0000-0000-000000003002',
     courtName: 'Sân Bóng Đá Mini B2 - Victory Arena',
     bookingDate: '2026-12-10',
+    startTime: '17:00:00',
+    endTime: '18:30:00',
+    hourlyPriceSnapshot: 300000,
     status: 3,
     totalPrice: 450000,
-    note: '17:00 - 18:30',
+    paymentType: 1,
+    note: 'Booking đã bị hủy.',
     createdAt: new Date().toISOString(),
   },
 ]
@@ -131,7 +147,7 @@ function getBookingImage(booking: BookingResponse, index: number) {
 }
 
 function getTimeLabel(booking: BookingResponse) {
-  return booking.note?.match(/\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/)?.[0] ?? 'Đang cập nhật'
+  return `${booking.startTime.slice(0, 5)} - ${booking.endTime.slice(0, 5)}`
 }
 
 export function BookingHistoryPage() {
@@ -197,9 +213,7 @@ export function BookingHistoryPage() {
     <main className="min-h-screen bg-[#f7f9fb] text-[#191c1e]">
       <div className="mx-auto max-w-[1280px] px-4 pb-16 pt-24 sm:px-6">
         <header>
-          <h1 className="text-3xl font-bold tracking-[-0.01em]">
-            Lịch sử đặt sân
-          </h1>
+          <h1 className="text-3xl font-bold tracking-[-0.01em]">Lịch sử đặt sân</h1>
           <p className="mt-2 text-base text-[#3d4a3d]">
             Quản lý và theo dõi tất cả các lượt đặt chỗ của bạn.
           </p>

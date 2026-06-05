@@ -56,13 +56,11 @@ function endOfMonth(date: Date) {
 
 function startOfWeek(date: Date) {
   const dayIndex = (date.getDay() + 6) % 7
-
   return addDays(date, -dayIndex)
 }
 
 function endOfWeek(date: Date) {
   const dayIndex = (date.getDay() + 6) % 7
-
   return addDays(date, 6 - dayIndex)
 }
 
@@ -123,7 +121,7 @@ function getStatusMeta(status: BookingStatus) {
 }
 
 function getTimeLabel(booking: BookingResponse) {
-  return booking.note?.match(/\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/)?.[0] ?? 'Chưa có giờ'
+  return `${booking.startTime.slice(0, 5)} - ${booking.endTime.slice(0, 5)}`
 }
 
 export function AdminBookingCalendarPage() {
@@ -158,15 +156,14 @@ export function AdminBookingCalendarPage() {
       .then((response) => {
         if (isMounted) {
           setBookings(response)
+          setError('')
         }
       })
       .catch((err: unknown) => {
         if (isMounted) {
           setBookings([])
           setError(
-            err instanceof Error
-              ? err.message
-              : 'Không tải được lịch đặt sân.',
+            err instanceof Error ? err.message : 'Không tải được lịch đặt sân.',
           )
         }
       })
@@ -257,10 +254,7 @@ export function AdminBookingCalendarPage() {
     setStatusFilter(value)
   }
 
-  async function handleBookingStatusChange(
-    booking: BookingResponse,
-    status: BookingStatus,
-  ) {
+  async function handleBookingStatusChange(booking: BookingResponse, status: BookingStatus) {
     if (booking.status === status) {
       return
     }
@@ -272,9 +266,7 @@ export function AdminBookingCalendarPage() {
     try {
       const updatedBooking = await updateBookingStatus(booking.id, { status })
       setBookings((current) =>
-        current.map((item) =>
-          item.id === updatedBooking.id ? updatedBooking : item,
-        ),
+        current.map((item) => (item.id === updatedBooking.id ? updatedBooking : item)),
       )
       setSuccess('Cập nhật trạng thái booking thành công.')
     } catch (err) {
@@ -296,44 +288,18 @@ export function AdminBookingCalendarPage() {
             <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#006e2f]">
               Admin
             </p>
-            <h1 className="mt-2 text-3xl font-bold tracking-[-0.01em]">
-              Lịch đặt sân
-            </h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-[-0.01em]">Lịch đặt sân</h1>
             <p className="mt-2 text-[#3d4a3d]">
               Theo dõi booking theo dạng calendar và cập nhật trạng thái trực tiếp.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link
-              to="/admin/dashboard"
-              className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-bold text-[#3d4a3d] transition hover:border-[#006e2f] hover:text-[#006e2f]"
-            >
-              Dashboard
-            </Link>
-            <Link
-              to="/admin/bookings"
-              className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-bold text-[#3d4a3d] transition hover:border-[#006e2f] hover:text-[#006e2f]"
-            >
-              Booking
-            </Link>
-            <Link
-              to="/admin/courts"
-              className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-bold text-[#3d4a3d] transition hover:border-[#006e2f] hover:text-[#006e2f]"
-            >
-              Quản lý sân
-            </Link>
-            <Link
-              to="/admin/revenue"
-              className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-bold text-[#3d4a3d] transition hover:border-[#006e2f] hover:text-[#006e2f]"
-            >
-              Doanh thu
-            </Link>
-            <Link
-              to="/admin/users"
-              className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-bold text-[#3d4a3d] transition hover:border-[#006e2f] hover:text-[#006e2f]"
-            >
-              User
-            </Link>
+            <AdminLink to="/admin/dashboard">Dashboard</AdminLink>
+            <AdminLink to="/admin/bookings">Booking</AdminLink>
+            <AdminLink to="/admin/courts">Quản lý sân</AdminLink>
+            <AdminLink to="/admin/revenue">Doanh thu</AdminLink>
+            <AdminLink to="/admin/price-rules">Bảng giá</AdminLink>
+            <AdminLink to="/admin/users">User</AdminLink>
           </div>
         </header>
 
@@ -356,9 +322,7 @@ export function AdminBookingCalendarPage() {
                 ‹
               </button>
               <div className="min-w-[220px] text-center">
-                <h2 className="text-xl font-bold capitalize">
-                  {formatMonthTitle(calendarMonth)}
-                </h2>
+                <h2 className="text-xl font-bold capitalize">{formatMonthTitle(calendarMonth)}</h2>
                 <p className="text-sm text-[#545f73]">
                   {visibleRange.fromDate} - {visibleRange.toDate}
                 </p>
@@ -381,9 +345,7 @@ export function AdminBookingCalendarPage() {
             </div>
 
             <label className="w-full lg:w-[260px]">
-              <span className="text-sm font-semibold text-[#3d4a3d]">
-                Lọc trạng thái
-              </span>
+              <span className="text-sm font-semibold text-[#3d4a3d]">Lọc trạng thái</span>
               <select
                 value={statusFilter}
                 onChange={(event) =>
@@ -405,11 +367,7 @@ export function AdminBookingCalendarPage() {
           </div>
         </section>
 
-        {error ? (
-          <Alert tone="error" message={error} />
-        ) : success ? (
-          <Alert tone="success" message={success} />
-        ) : null}
+        {error ? <Alert tone="error" message={error} /> : success ? <Alert tone="success" message={success} /> : null}
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[1.5fr_420px]">
           <div className="rounded-xl border border-[#bccbb9] bg-white p-4 shadow-sm">
@@ -448,9 +406,7 @@ export function AdminBookingCalendarPage() {
                     ].join(' ')}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="text-sm font-bold">
-                        {day.date.getDate()}
-                      </span>
+                      <span className="text-sm font-bold">{day.date.getDate()}</span>
                       {dayBookings.length ? (
                         <span className="rounded-full bg-[#006e2f] px-2 py-0.5 text-[11px] font-bold text-white">
                           {dayBookings.length}
@@ -467,10 +423,7 @@ export function AdminBookingCalendarPage() {
                             className="flex items-center gap-1.5 truncate text-xs font-medium text-[#3d4a3d]"
                           >
                             <span
-                              className={[
-                                'h-2 w-2 shrink-0 rounded-full',
-                                status.dotClassName,
-                              ].join(' ')}
+                              className={['h-2 w-2 shrink-0 rounded-full', status.dotClassName].join(' ')}
                             />
                             <span className="truncate">{booking.courtName}</span>
                           </div>
@@ -496,11 +449,7 @@ export function AdminBookingCalendarPage() {
                 </p>
                 <h2 className="mt-2 text-xl font-bold">{formatDate(selectedDate)}</h2>
               </div>
-              {isLoading ? (
-                <span className="text-sm font-semibold text-[#006e2f]">
-                  Đang tải...
-                </span>
-              ) : null}
+              {isLoading ? <span className="text-sm font-semibold text-[#006e2f]">Đang tải...</span> : null}
             </div>
 
             <div className="mt-5 space-y-4">
@@ -510,9 +459,7 @@ export function AdminBookingCalendarPage() {
                     key={booking.id}
                     booking={booking}
                     isSaving={savingBookingId === booking.id}
-                    onStatusChange={(status) =>
-                      handleBookingStatusChange(booking, status)
-                    }
+                    onStatusChange={(status) => handleBookingStatusChange(booking, status)}
                   />
                 ))
               ) : (
@@ -528,6 +475,17 @@ export function AdminBookingCalendarPage() {
         </section>
       </div>
     </main>
+  )
+}
+
+function AdminLink({ to, children }: { to: string; children: string }) {
+  return (
+    <Link
+      to={to}
+      className="rounded-lg border border-[#bccbb9] bg-white px-5 py-3 text-sm font-bold text-[#3d4a3d] transition hover:border-[#006e2f] hover:text-[#006e2f]"
+    >
+      {children}
+    </Link>
   )
 }
 
@@ -552,9 +510,7 @@ function MetricCard({
   return (
     <article className="rounded-xl border border-[#bccbb9] bg-white p-5 shadow-sm">
       <p className="text-sm font-semibold text-[#3d4a3d]">{label}</p>
-      <p className={['mt-3 text-3xl font-bold', toneClassName].join(' ')}>
-        {value}
-      </p>
+      <p className={['mt-3 text-3xl font-bold', toneClassName].join(' ')}>{value}</p>
     </article>
   )
 }
@@ -579,12 +535,7 @@ function BookingCard({
             {booking.userName} · {getTimeLabel(booking)}
           </p>
         </div>
-        <span
-          className={[
-            'shrink-0 rounded-full px-3 py-1 text-xs font-bold',
-            status.className,
-          ].join(' ')}
-        >
+        <span className={['shrink-0 rounded-full px-3 py-1 text-xs font-bold', status.className].join(' ')}>
           {status.label}
         </span>
       </div>
@@ -603,21 +554,15 @@ function BookingCard({
       </div>
 
       {booking.note ? (
-        <p className="mt-3 rounded-lg bg-[#f7f9fb] p-3 text-sm text-[#3d4a3d]">
-          {booking.note}
-        </p>
+        <p className="mt-3 rounded-lg bg-[#f7f9fb] p-3 text-sm text-[#3d4a3d]">{booking.note}</p>
       ) : null}
 
       <label className="mt-4 block">
-        <span className="text-xs font-semibold text-[#545f73]">
-          Cập nhật trạng thái
-        </span>
+        <span className="text-xs font-semibold text-[#545f73]">Cập nhật trạng thái</span>
         <select
           value={booking.status}
           disabled={isSaving}
-          onChange={(event) =>
-            onStatusChange(Number(event.target.value) as BookingStatus)
-          }
+          onChange={(event) => onStatusChange(Number(event.target.value) as BookingStatus)}
           className="mt-2 w-full rounded-lg border border-[#bccbb9] bg-white px-3 py-2 text-sm font-semibold outline-none transition focus:border-[#006e2f] focus:ring-2 focus:ring-[#006e2f]/15 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {statusOptions

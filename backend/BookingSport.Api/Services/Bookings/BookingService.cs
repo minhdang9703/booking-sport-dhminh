@@ -24,19 +24,23 @@ public class BookingService(AppDbContext dbContext) : IBookingService
 
         if (!validation.Succeeded)
         {
-            return validation;
+            return MapValidationFailure(validation);
         }
 
-        var schedule = await GetScheduleForBookingAsync(request.CourtScheduleId, cancellationToken);
-
+        var priceRule = validation.Value!;
+        var totalPrice = CalculateTotalPrice(request.StartTime, request.EndTime, priceRule.HourlyPrice);
         var booking = new Booking
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            CourtScheduleId = request.CourtScheduleId,
+            CourtId = request.CourtId,
             BookingDate = request.BookingDate,
+            StartTime = request.StartTime,
+            EndTime = request.EndTime,
+            HourlyPriceSnapshot = priceRule.HourlyPrice,
+            TotalPrice = totalPrice,
             Status = BookingStatus.Pending,
-            TotalPrice = schedule!.Price,
+            PaymentType = request.PaymentType,
             Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(),
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -49,7 +53,7 @@ public class BookingService(AppDbContext dbContext) : IBookingService
         }
         catch (DbUpdateException exception) when (IsDuplicateBookingException(exception))
         {
-            return BookingResult<BookingResponse>.Conflict("This schedule has already been booked.");
+            return BookingResult<BookingResponse>.Conflict("This time range has already been booked.");
         }
 
         var response = await GetBookingResponseQuery()
@@ -67,7 +71,7 @@ public class BookingService(AppDbContext dbContext) : IBookingService
         return await GetBookingResponseQuery()
             .Where(booking => booking.UserId == userId)
             .OrderByDescending(booking => booking.BookingDate)
-            .ThenBy(booking => booking.CourtSchedule.StartTime)
+            .ThenBy(booking => booking.StartTime)
             .Select(booking => MapBookingResponse(booking))
             .ToListAsync(cancellationToken);
     }
@@ -90,7 +94,7 @@ public class BookingService(AppDbContext dbContext) : IBookingService
 
         if (query.CourtId.HasValue)
         {
-            bookingsQuery = bookingsQuery.Where(booking => booking.CourtSchedule.CourtId == query.CourtId.Value);
+            bookingsQuery = bookingsQuery.Where(booking => booking.CourtId == query.CourtId.Value);
         }
 
         if (query.Status.HasValue)
@@ -100,7 +104,7 @@ public class BookingService(AppDbContext dbContext) : IBookingService
 
         return await bookingsQuery
             .OrderByDescending(booking => booking.BookingDate)
-            .ThenBy(booking => booking.CourtSchedule.StartTime)
+            .ThenBy(booking => booking.StartTime)
             .Select(booking => MapBookingResponse(booking))
             .ToListAsync(cancellationToken);
     }
@@ -140,15 +144,17 @@ public class BookingService(AppDbContext dbContext) : IBookingService
         {
             var isBooked = await dbContext.Bookings.AnyAsync(otherBooking =>
                 otherBooking.Id != booking.Id &&
-                otherBooking.CourtScheduleId == booking.CourtScheduleId &&
+                otherBooking.CourtId == booking.CourtId &&
                 otherBooking.BookingDate == booking.BookingDate &&
+                otherBooking.StartTime < booking.EndTime &&
+                otherBooking.EndTime > booking.StartTime &&
                 otherBooking.DeletedAt == null &&
                 BlockingStatuses.Contains(otherBooking.Status),
                 cancellationToken);
 
             if (isBooked)
             {
-                return BookingResult<BookingResponse>.Conflict("This schedule has already been booked.");
+                return BookingResult<BookingResponse>.Conflict("This time range has already been booked.");
             }
         }
 
@@ -161,7 +167,7 @@ public class BookingService(AppDbContext dbContext) : IBookingService
         }
         catch (DbUpdateException exception) when (IsDuplicateBookingException(exception))
         {
-            return BookingResult<BookingResponse>.Conflict("This schedule has already been booked.");
+            return BookingResult<BookingResponse>.Conflict("This time range has already been booked.");
         }
 
         var response = await GetBookingResponseQuery()
@@ -172,7 +178,7 @@ public class BookingService(AppDbContext dbContext) : IBookingService
         return BookingResult<BookingResponse>.Success(response);
     }
 
-    private async Task<BookingResult<BookingResponse>> ValidateCreateRequestAsync(
+    private async Task<BookingResult<PriceRule>> ValidateCreateRequestAsync(
         Guid userId,
         BookingCreateRequest request,
         CancellationToken cancellationToken)
@@ -182,62 +188,61 @@ public class BookingService(AppDbContext dbContext) : IBookingService
 
         if (!userExists)
         {
-            return BookingResult<BookingResponse>.BadRequest("User was not found.");
+            return BookingResult<PriceRule>.BadRequest("User was not found.");
         }
 
-        var schedule = await GetScheduleForBookingAsync(request.CourtScheduleId, cancellationToken);
-
-        if (schedule is null)
+        if (request.StartTime >= request.EndTime)
         {
-            return BookingResult<BookingResponse>.BadRequest("Schedule was not found.");
+            return BookingResult<PriceRule>.BadRequest("StartTime must be earlier than EndTime.");
         }
 
-        if (!schedule.IsAvailable)
+        var court = await dbContext.Courts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(court =>
+                court.Id == request.CourtId &&
+                court.DeletedAt == null,
+                cancellationToken);
+
+        if (court is null)
         {
-            return BookingResult<BookingResponse>.BadRequest("Schedule is not available.");
+            return BookingResult<PriceRule>.BadRequest("Court was not found.");
         }
 
-        if (schedule.Court.Status != CourtStatus.Active)
+        if (court.Status != CourtStatus.Active)
         {
-            return BookingResult<BookingResponse>.BadRequest("Court is not active.");
+            return BookingResult<PriceRule>.BadRequest("Court is not active.");
         }
 
-        if (request.BookingDate.DayOfWeek != schedule.DayOfWeek)
+        var priceRule = await dbContext.PriceRules
+            .AsNoTracking()
+            .Where(rule =>
+                rule.DayOfWeek == request.BookingDate.DayOfWeek &&
+                rule.IsEnabled &&
+                rule.StartTime <= request.StartTime &&
+                rule.EndTime >= request.EndTime)
+            .OrderBy(rule => rule.StartTime)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (priceRule is null)
         {
-            return BookingResult<BookingResponse>.BadRequest("Booking date does not match schedule day of week.");
+            return BookingResult<PriceRule>.BadRequest("No enabled price rule covers this time range.");
         }
 
-        var isBooked = await dbContext.Bookings.AnyAsync(booking =>
-            booking.CourtScheduleId == request.CourtScheduleId &&
+        var overlapsExistingBooking = await dbContext.Bookings.AnyAsync(booking =>
+            booking.CourtId == request.CourtId &&
             booking.BookingDate == request.BookingDate &&
+            booking.StartTime < request.EndTime &&
+            booking.EndTime > request.StartTime &&
             booking.DeletedAt == null &&
             BlockingStatuses.Contains(booking.Status),
             cancellationToken);
 
-        if (isBooked)
+        if (overlapsExistingBooking)
         {
-            return BookingResult<BookingResponse>.Conflict("This schedule has already been booked.");
+            return BookingResult<PriceRule>.Conflict("This time range has already been booked.");
         }
 
-        return BookingResult<BookingResponse>.Success(new BookingResponse());
-    }
-
-    private async Task<CourtSchedule?> GetScheduleForBookingAsync(
-        Guid scheduleId,
-        CancellationToken cancellationToken)
-    {
-        return await dbContext.CourtSchedules
-            .Include(schedule => schedule.Court)
-            .ThenInclude(court => court.Venue)
-            .Include(schedule => schedule.Court)
-            .ThenInclude(court => court.Sport)
-            .FirstOrDefaultAsync(schedule =>
-                schedule.Id == scheduleId &&
-                schedule.DeletedAt == null &&
-                schedule.Court.DeletedAt == null &&
-                schedule.Court.Venue.DeletedAt == null &&
-                schedule.Court.Sport.DeletedAt == null,
-                cancellationToken);
+        return BookingResult<PriceRule>.Success(priceRule);
     }
 
     private IQueryable<Booking> GetBookingResponseQuery()
@@ -245,8 +250,7 @@ public class BookingService(AppDbContext dbContext) : IBookingService
         return dbContext.Bookings
             .AsNoTracking()
             .Include(booking => booking.User)
-            .Include(booking => booking.CourtSchedule)
-            .ThenInclude(schedule => schedule.Court)
+            .Include(booking => booking.Court)
             .Where(booking => booking.DeletedAt == null);
     }
 
@@ -257,15 +261,26 @@ public class BookingService(AppDbContext dbContext) : IBookingService
             Id = booking.Id,
             UserId = booking.UserId,
             UserName = booking.User.FullName,
-            CourtScheduleId = booking.CourtScheduleId,
-            CourtName = booking.CourtSchedule.Court.Name,
+            CourtId = booking.CourtId,
+            CourtName = booking.Court.Name,
             BookingDate = booking.BookingDate,
+            StartTime = booking.StartTime,
+            EndTime = booking.EndTime,
+            HourlyPriceSnapshot = booking.HourlyPriceSnapshot,
             Status = booking.Status,
             TotalPrice = booking.TotalPrice,
+            PaymentType = booking.PaymentType,
             Note = booking.Note,
             CreatedAt = booking.CreatedAt,
             UpdatedAt = booking.UpdatedAt
         };
+    }
+
+    private static decimal CalculateTotalPrice(TimeOnly startTime, TimeOnly endTime, decimal hourlyPrice)
+    {
+        var hours = (decimal)(endTime.ToTimeSpan() - startTime.ToTimeSpan()).TotalHours;
+
+        return Math.Round(hours * hourlyPrice, 2);
     }
 
     private static bool IsDuplicateBookingException(DbUpdateException exception)
@@ -273,6 +288,17 @@ public class BookingService(AppDbContext dbContext) : IBookingService
         return exception.InnerException is PostgresException
         {
             SqlState: PostgresErrorCodes.UniqueViolation
+        };
+    }
+
+    private static BookingResult<BookingResponse> MapValidationFailure(BookingResult<PriceRule> result)
+    {
+        return result.Status switch
+        {
+            BookingResultStatus.BadRequest => BookingResult<BookingResponse>.BadRequest(result.Error ?? "Invalid booking request."),
+            BookingResultStatus.Conflict => BookingResult<BookingResponse>.Conflict(result.Error ?? "Booking request conflicts with existing data."),
+            BookingResultStatus.NotFound => BookingResult<BookingResponse>.NotFound(result.Error ?? "Booking data was not found."),
+            _ => BookingResult<BookingResponse>.BadRequest(result.Error ?? "Invalid booking request.")
         };
     }
 }

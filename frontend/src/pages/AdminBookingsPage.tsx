@@ -57,6 +57,10 @@ function formatDateTime(value: string) {
   }).format(new Date(value))
 }
 
+function getTimeLabel(booking: BookingResponse) {
+  return `${booking.startTime.slice(0, 5)} - ${booking.endTime.slice(0, 5)}`
+}
+
 function getStatusMeta(status: BookingStatus) {
   if (status === 1) {
     return {
@@ -85,19 +89,13 @@ function getStatusMeta(status: BookingStatus) {
   }
 }
 
-function getTimeLabel(booking: BookingResponse) {
-  return booking.note?.match(/\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/)?.[0] ?? 'Chưa có giờ'
-}
-
 export function AdminBookingsPage() {
   const [fromDate, setFromDate] = useState(getDefaultFromDate)
   const [toDate, setToDate] = useState(() => toDateInputValue(new Date()))
   const [statusFilter, setStatusFilter] = useState<BookingStatus | 'all'>('all')
   const [keyword, setKeyword] = useState('')
   const [bookings, setBookings] = useState<BookingResponse[]>([])
-  const [selectedBooking, setSelectedBooking] = useState<BookingResponse | null>(
-    null,
-  )
+  const [selectedBooking, setSelectedBooking] = useState<BookingResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [savingBookingId, setSavingBookingId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -114,6 +112,7 @@ export function AdminBookingsPage() {
       .then((response) => {
         if (isMounted) {
           setBookings(response)
+          setError('')
         }
       })
       .catch((err: unknown) => {
@@ -152,7 +151,7 @@ export function AdminBookingsPage() {
     }
 
     return bookings.filter((booking) =>
-      `${booking.id} ${booking.userName} ${booking.courtName} ${booking.note ?? ''}`
+      `${booking.id} ${booking.userName} ${booking.courtName} ${booking.note ?? ''} ${booking.startTime} ${booking.endTime}`
         .toLowerCase()
         .includes(normalizedKeyword),
     )
@@ -171,10 +170,7 @@ export function AdminBookingsPage() {
     [bookings],
   )
 
-  async function handleStatusChange(
-    booking: BookingResponse,
-    status: BookingStatus,
-  ) {
+  async function handleStatusChange(booking: BookingResponse, status: BookingStatus) {
     if (booking.status === status) {
       return
     }
@@ -186,9 +182,7 @@ export function AdminBookingsPage() {
     try {
       const updatedBooking = await updateBookingStatus(booking.id, { status })
       setBookings((current) =>
-        current.map((item) =>
-          item.id === updatedBooking.id ? updatedBooking : item,
-        ),
+        current.map((item) => (item.id === updatedBooking.id ? updatedBooking : item)),
       )
       setSelectedBooking((current) =>
         current?.id === updatedBooking.id ? updatedBooking : current,
@@ -213,19 +207,18 @@ export function AdminBookingsPage() {
             <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#006e2f]">
               Admin
             </p>
-            <h1 className="mt-2 text-3xl font-bold tracking-[-0.01em]">
-              Quản lý booking
-            </h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-[-0.01em]">Quản lý booking</h1>
             <p className="mt-2 text-[#3d4a3d]">
-              Theo dõi toàn bộ lịch đặt sân, lọc theo ngày và cập nhật trạng thái.
+              Theo dõi lịch đặt sân, lọc theo ngày và cập nhật trạng thái.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <AdminLink to="/admin/dashboard">Dashboard</AdminLink>
             <AdminLink to="/admin/bookings/calendar">Calendar</AdminLink>
             <AdminLink to="/admin/revenue">Doanh thu</AdminLink>
-            <AdminLink to="/admin/users">User</AdminLink>
             <AdminLink to="/admin/courts">Quản lý sân</AdminLink>
+            <AdminLink to="/admin/price-rules">Bảng giá</AdminLink>
+            <AdminLink to="/admin/users">User</AdminLink>
           </div>
         </header>
 
@@ -244,35 +237,25 @@ export function AdminBookingsPage() {
         <section className="mt-6 rounded-xl border border-[#bccbb9] bg-white p-5 shadow-sm">
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr_220px_1.3fr] lg:items-end">
             <label>
-              <span className="text-sm font-semibold text-[#3d4a3d]">
-                Từ ngày
-              </span>
+              <span className="text-sm font-semibold text-[#3d4a3d]">Từ ngày</span>
               <input
                 type="date"
                 value={fromDate}
-                onChange={(event) =>
-                  refreshWithLoading(() => setFromDate(event.target.value))
-                }
+                onChange={(event) => refreshWithLoading(() => setFromDate(event.target.value))}
                 className="mt-2 h-12 w-full rounded-lg bg-[#eceef0] px-4 outline-none focus:ring-2 focus:ring-[#006e2f]/30"
               />
             </label>
             <label>
-              <span className="text-sm font-semibold text-[#3d4a3d]">
-                Đến ngày
-              </span>
+              <span className="text-sm font-semibold text-[#3d4a3d]">Đến ngày</span>
               <input
                 type="date"
                 value={toDate}
-                onChange={(event) =>
-                  refreshWithLoading(() => setToDate(event.target.value))
-                }
+                onChange={(event) => refreshWithLoading(() => setToDate(event.target.value))}
                 className="mt-2 h-12 w-full rounded-lg bg-[#eceef0] px-4 outline-none focus:ring-2 focus:ring-[#006e2f]/30"
               />
             </label>
             <label>
-              <span className="text-sm font-semibold text-[#3d4a3d]">
-                Trạng thái
-              </span>
+              <span className="text-sm font-semibold text-[#3d4a3d]">Trạng thái</span>
               <select
                 value={statusFilter}
                 onChange={(event) =>
@@ -294,9 +277,7 @@ export function AdminBookingsPage() {
               </select>
             </label>
             <label>
-              <span className="text-sm font-semibold text-[#3d4a3d]">
-                Tìm kiếm
-              </span>
+              <span className="text-sm font-semibold text-[#3d4a3d]">Tìm kiếm</span>
               <input
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
@@ -340,9 +321,7 @@ export function AdminBookingsPage() {
                         booking={booking}
                         isSaving={savingBookingId === booking.id}
                         onView={setSelectedBooking}
-                        onStatusChange={(status) =>
-                          handleStatusChange(booking, status)
-                        }
+                        onStatusChange={(status) => handleStatusChange(booking, status)}
                       />
                     ))}
               </tbody>
@@ -361,9 +340,7 @@ export function AdminBookingsPage() {
             booking={selectedBooking}
             isSaving={savingBookingId === selectedBooking.id}
             onClose={() => setSelectedBooking(null)}
-            onStatusChange={(status) =>
-              handleStatusChange(selectedBooking, status)
-            }
+            onStatusChange={(status) => handleStatusChange(selectedBooking, status)}
           />
         ) : null}
       </div>
@@ -403,9 +380,7 @@ function MetricCard({
   return (
     <article className="rounded-xl border border-[#bccbb9] bg-white p-5 shadow-sm">
       <p className="text-sm font-semibold text-[#3d4a3d]">{label}</p>
-      <p className={['mt-3 text-2xl font-bold', valueClassName].join(' ')}>
-        {value}
-      </p>
+      <p className={['mt-3 text-2xl font-bold', valueClassName].join(' ')}>{value}</p>
     </article>
   )
 }
@@ -427,26 +402,17 @@ function BookingRow({
     <tr className="border-b border-[#eef1ef] text-sm last:border-0">
       <td className="py-4 pr-4">
         <p className="font-bold">#{booking.id.slice(0, 8).toUpperCase()}</p>
-        <p className="mt-1 text-xs text-[#545f73]">
-          Tạo lúc {formatDateTime(booking.createdAt)}
-        </p>
+        <p className="mt-1 text-xs text-[#545f73]">Tạo lúc {formatDateTime(booking.createdAt)}</p>
       </td>
       <td className="py-4 pr-4 font-semibold">{booking.userName}</td>
       <td className="py-4 pr-4 text-[#3d4a3d]">{booking.courtName}</td>
-      <td className="py-4 pr-4 text-[#3d4a3d]">
-        {formatDate(booking.bookingDate)}
-      </td>
+      <td className="py-4 pr-4 text-[#3d4a3d]">{formatDate(booking.bookingDate)}</td>
       <td className="py-4 pr-4 text-[#3d4a3d]">{getTimeLabel(booking)}</td>
       <td className="py-4 pr-4 text-right font-bold text-[#006e2f]">
         {formatCurrency(booking.totalPrice)}
       </td>
       <td className="py-4 pr-4">
-        <span
-          className={[
-            'rounded-full px-3 py-1 text-xs font-bold',
-            status.className,
-          ].join(' ')}
-        >
+        <span className={['rounded-full px-3 py-1 text-xs font-bold', status.className].join(' ')}>
           {status.label}
         </span>
       </td>
@@ -455,9 +421,7 @@ function BookingRow({
           <select
             value={booking.status}
             disabled={isSaving}
-            onChange={(event) =>
-              onStatusChange(Number(event.target.value) as BookingStatus)
-            }
+            onChange={(event) => onStatusChange(Number(event.target.value) as BookingStatus)}
             className="h-9 rounded-lg border border-[#bccbb9] bg-white px-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-[#006e2f]/20 disabled:opacity-60"
           >
             {statusOptions
@@ -528,30 +492,19 @@ function BookingDetailModal({
 
         <div className="mt-4 rounded-lg bg-[#f7f9fb] p-4">
           <p className="text-sm font-semibold text-[#545f73]">Ghi chú</p>
-          <p className="mt-1 text-sm text-[#3d4a3d]">
-            {booking.note || 'Không có ghi chú.'}
-          </p>
+          <p className="mt-1 text-sm text-[#3d4a3d]">{booking.note || 'Không có ghi chú.'}</p>
         </div>
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <span
-            className={[
-              'inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold',
-              status.className,
-            ].join(' ')}
-          >
+          <span className={['inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold', status.className].join(' ')}>
             {status.label}
           </span>
           <label className="w-full sm:w-[260px]">
-            <span className="text-xs font-semibold text-[#545f73]">
-              Cập nhật trạng thái
-            </span>
+            <span className="text-xs font-semibold text-[#545f73]">Cập nhật trạng thái</span>
             <select
               value={booking.status}
               disabled={isSaving}
-              onChange={(event) =>
-                onStatusChange(Number(event.target.value) as BookingStatus)
-              }
+              onChange={(event) => onStatusChange(Number(event.target.value) as BookingStatus)}
               className="mt-2 h-11 w-full rounded-lg border border-[#bccbb9] bg-white px-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#006e2f]/20 disabled:opacity-60"
             >
               {statusOptions

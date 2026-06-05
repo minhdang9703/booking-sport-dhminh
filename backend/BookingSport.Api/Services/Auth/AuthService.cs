@@ -19,13 +19,19 @@ public class AuthService(
     public async Task<AuthResult> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
         var email = NormalizeEmail(request.Email);
+        var phoneNumber = request.PhoneNumber.Trim();
 
-        var emailExists = await dbContext.Users
-            .AnyAsync(user => user.Email == email, cancellationToken);
-
-        if (emailExists)
+        if (string.IsNullOrWhiteSpace(phoneNumber))
         {
-            return AuthResult.Failure("Email is already registered.");
+            return AuthResult.Failure("Phone number is required.");
+        }
+
+        var phoneExists = await dbContext.Users
+            .AnyAsync(user => user.PhoneNumber == phoneNumber, cancellationToken);
+
+        if (phoneExists)
+        {
+            return AuthResult.Failure("Phone number is already registered.");
         }
 
         var user = new User
@@ -33,7 +39,7 @@ public class AuthService(
             Id = Guid.NewGuid(),
             FullName = request.FullName.Trim(),
             Email = email,
-            PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim(),
+            PhoneNumber = phoneNumber,
             Role = UserRole.Customer,
             CreatedAt = DateTimeOffset.UtcNow
         };

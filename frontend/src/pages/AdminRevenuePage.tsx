@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import {
-  getBookings,
-  type BookingResponse,
-  type BookingStatus,
-} from '../lib/bookingsApi'
+import { getBookings, type BookingResponse, type BookingStatus } from '../lib/bookingsApi'
 import {
   getRevenueDashboard,
   type RevenueDashboardResponse,
@@ -52,7 +48,7 @@ function formatDate(value: string) {
 }
 
 function getBookingTime(booking: BookingResponse) {
-  return booking.note?.match(/\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/)?.[0] ?? 'Chưa có giờ'
+  return `${booking.startTime.slice(0, 5)} - ${booking.endTime.slice(0, 5)}`
 }
 
 export function AdminRevenuePage() {
@@ -60,9 +56,7 @@ export function AdminRevenuePage() {
   const [toDate, setToDate] = useState(() => toDateInputValue(new Date()))
   const [period, setPeriod] = useState<RevenuePeriod>('Day')
   const [keyword, setKeyword] = useState('')
-  const [dashboard, setDashboard] = useState<RevenueDashboardResponse | null>(
-    null,
-  )
+  const [dashboard, setDashboard] = useState<RevenueDashboardResponse | null>(null)
   const [bookings, setBookings] = useState<BookingResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -78,6 +72,7 @@ export function AdminRevenuePage() {
         if (isMounted) {
           setDashboard(dashboardResponse)
           setBookings(bookingResponse)
+          setError('')
         }
       })
       .catch((err: unknown) => {
@@ -124,17 +119,14 @@ export function AdminRevenuePage() {
     }
 
     return bookings.filter((booking) =>
-      `${booking.courtName} ${booking.userName} ${booking.id}`
+      `${booking.courtName} ${booking.userName} ${booking.id} ${booking.startTime} ${booking.endTime}`
         .toLowerCase()
         .includes(normalizedKeyword),
     )
   }, [bookings, keyword])
 
   const topCourts = useMemo(() => {
-    const map = new Map<
-      string,
-      { courtName: string; revenue: number; bookingCount: number }
-    >()
+    const map = new Map<string, { courtName: string; revenue: number; bookingCount: number }>()
 
     bookings.forEach((booking) => {
       const current = map.get(booking.courtName) ?? {
@@ -171,9 +163,7 @@ export function AdminRevenuePage() {
             <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#006e2f]">
               Admin
             </p>
-            <h1 className="mt-2 text-3xl font-bold tracking-[-0.01em]">
-              Quản lý doanh thu
-            </h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-[-0.01em]">Quản lý doanh thu</h1>
             <p className="mt-2 text-[#3d4a3d]">
               Theo dõi doanh thu từ booking hoàn tất, phân tích theo thời gian và sân.
             </p>
@@ -182,50 +172,37 @@ export function AdminRevenuePage() {
             <AdminLink to="/admin/dashboard">Dashboard</AdminLink>
             <AdminLink to="/admin/bookings">Booking</AdminLink>
             <AdminLink to="/admin/bookings/calendar">Lịch đặt sân</AdminLink>
-            <AdminLink to="/admin/users">User</AdminLink>
             <AdminLink to="/admin/courts">Quản lý sân</AdminLink>
+            <AdminLink to="/admin/price-rules">Bảng giá</AdminLink>
+            <AdminLink to="/admin/users">User</AdminLink>
           </div>
         </header>
 
         <section className="mt-8 rounded-xl border border-[#bccbb9] bg-white p-5 shadow-sm">
           <div className="grid gap-4 md:grid-cols-[1fr_1fr_220px]">
             <label>
-              <span className="text-sm font-semibold text-[#3d4a3d]">
-                Từ ngày
-              </span>
+              <span className="text-sm font-semibold text-[#3d4a3d]">Từ ngày</span>
               <input
                 type="date"
                 value={fromDate}
-                onChange={(event) =>
-                  refreshWithLoading(() => setFromDate(event.target.value))
-                }
+                onChange={(event) => refreshWithLoading(() => setFromDate(event.target.value))}
                 className="mt-2 w-full rounded-lg border border-[#bccbb9] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#006e2f] focus:ring-2 focus:ring-[#006e2f]/15"
               />
             </label>
             <label>
-              <span className="text-sm font-semibold text-[#3d4a3d]">
-                Đến ngày
-              </span>
+              <span className="text-sm font-semibold text-[#3d4a3d]">Đến ngày</span>
               <input
                 type="date"
                 value={toDate}
-                onChange={(event) =>
-                  refreshWithLoading(() => setToDate(event.target.value))
-                }
+                onChange={(event) => refreshWithLoading(() => setToDate(event.target.value))}
                 className="mt-2 w-full rounded-lg border border-[#bccbb9] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#006e2f] focus:ring-2 focus:ring-[#006e2f]/15"
               />
             </label>
             <label>
-              <span className="text-sm font-semibold text-[#3d4a3d]">
-                Nhóm theo
-              </span>
+              <span className="text-sm font-semibold text-[#3d4a3d]">Nhóm theo</span>
               <select
                 value={period}
-                onChange={(event) =>
-                  refreshWithLoading(() =>
-                    setPeriod(event.target.value as RevenuePeriod),
-                  )
-                }
+                onChange={(event) => refreshWithLoading(() => setPeriod(event.target.value as RevenuePeriod))}
                 className="mt-2 w-full rounded-lg border border-[#bccbb9] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#006e2f] focus:ring-2 focus:ring-[#006e2f]/15"
               >
                 {periodOptions.map((option) => (
@@ -262,9 +239,7 @@ export function AdminRevenuePage() {
           />
           <MetricCard
             label="Giá trị trung bình"
-            value={
-              dashboard ? formatCurrency(dashboard.averageBookingValue) : '--'
-            }
+            value={dashboard ? formatCurrency(dashboard.averageBookingValue) : '--'}
             hint="Doanh thu / booking"
           />
           <MetricCard
@@ -284,11 +259,7 @@ export function AdminRevenuePage() {
                   Dữ liệu được group theo lựa chọn ngày, tuần hoặc tháng.
                 </p>
               </div>
-              {isLoading ? (
-                <span className="text-sm font-semibold text-[#006e2f]">
-                  Đang tải...
-                </span>
-              ) : null}
+              {isLoading ? <span className="text-sm font-semibold text-[#006e2f]">Đang tải...</span> : null}
             </div>
 
             <div className="mt-6 flex h-[340px] items-end gap-3 overflow-x-auto border-b border-l border-[#e0e3e5] px-2 pb-3">
@@ -335,9 +306,7 @@ export function AdminRevenuePage() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-bold text-[#006e2f]">
-                          #{index + 1}
-                        </p>
+                        <p className="text-xs font-bold text-[#006e2f]">#{index + 1}</p>
                         <p className="mt-1 font-bold">{court.courtName}</p>
                       </div>
                       <span className="rounded-full bg-[#22c55e]/20 px-3 py-1 text-xs font-bold text-[#006e2f]">
@@ -367,9 +336,7 @@ export function AdminRevenuePage() {
               </p>
             </div>
             <label className="w-full lg:w-[340px]">
-              <span className="text-sm font-semibold text-[#3d4a3d]">
-                Tìm kiếm
-              </span>
+              <span className="text-sm font-semibold text-[#3d4a3d]">Tìm kiếm</span>
               <input
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
@@ -393,21 +360,12 @@ export function AdminRevenuePage() {
               </thead>
               <tbody>
                 {filteredBookings.map((booking) => (
-                  <tr
-                    key={booking.id}
-                    className="border-b border-[#eef1ef] text-sm last:border-0"
-                  >
-                    <td className="py-4 pr-4 font-bold">
-                      #{booking.id.slice(0, 8).toUpperCase()}
-                    </td>
-                    <td className="py-4 pr-4 text-[#3d4a3d]">
-                      {formatDate(booking.bookingDate)}
-                    </td>
+                  <tr key={booking.id} className="border-b border-[#eef1ef] text-sm last:border-0">
+                    <td className="py-4 pr-4 font-bold">#{booking.id.slice(0, 8).toUpperCase()}</td>
+                    <td className="py-4 pr-4 text-[#3d4a3d]">{formatDate(booking.bookingDate)}</td>
                     <td className="py-4 pr-4 font-semibold">{booking.courtName}</td>
                     <td className="py-4 pr-4 text-[#3d4a3d]">{booking.userName}</td>
-                    <td className="py-4 pr-4 text-[#3d4a3d]">
-                      {getBookingTime(booking)}
-                    </td>
+                    <td className="py-4 pr-4 text-[#3d4a3d]">{getBookingTime(booking)}</td>
                     <td className="py-4 pr-4 text-right font-bold text-[#006e2f]">
                       {formatCurrency(booking.totalPrice)}
                     </td>

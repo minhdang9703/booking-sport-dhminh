@@ -1,15 +1,14 @@
-namespace BookingSport.Api.DTOs.CourtSchedules;
+namespace BookingSport.Api.Entities;
 
-public class CourtScheduleResponse
+public class PriceRule
 {
     public Guid Id { get; set; }
-    public Guid CourtId { get; set; }
-    public string CourtName { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
     public DayOfWeek DayOfWeek { get; set; }
     public TimeOnly StartTime { get; set; }
     public TimeOnly EndTime { get; set; }
-    public decimal Price { get; set; }
-    public bool IsAvailable { get; set; }
+    public decimal HourlyPrice { get; set; }
+    public bool IsEnabled { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
 }

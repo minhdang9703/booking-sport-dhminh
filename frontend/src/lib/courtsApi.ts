@@ -5,48 +5,51 @@ export type CourtStatus = 1 | 2 | 3
 
 export type Court = {
   id: string
-  venueId: string
-  venueName: string
-  sportId: string
-  sportName: string
   name: string
+  courtType: string
   status: CourtStatus
-  description?: string | null
   createdAt: string
   updatedAt?: string | null
 }
 
 export type CourtQuery = {
   keyword?: string
-  sportId?: string
-  venueId?: string
   status?: string
+  courtType?: string
 }
 
 export type CourtCreateRequest = {
-  venueId: string
-  sportId: string
   name: string
+  courtType: string
   status: CourtStatus
-  description?: string
 }
 
 export type CourtUpdateRequest = {
   name: string
+  courtType: string
   status: CourtStatus
-  description?: string
 }
 
 export type AvailableSchedule = {
-  scheduleId: string
+  priceRuleId: string
   courtId: string
   courtName: string
   date: string
   dayOfWeek: number
   startTime: string
   endTime: string
-  price: number
+  hourlyPrice: number
   isAvailable: boolean
+}
+
+export function getScheduleKey(schedule: AvailableSchedule) {
+  return [
+    schedule.priceRuleId,
+    schedule.courtId,
+    schedule.date,
+    schedule.startTime,
+    schedule.endTime,
+  ].join('|')
 }
 
 export function getCourts(query: CourtQuery = {}) {

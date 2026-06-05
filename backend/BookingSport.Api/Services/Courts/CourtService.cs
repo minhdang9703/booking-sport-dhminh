@@ -13,30 +13,27 @@ public class CourtService(AppDbContext dbContext) : ICourtService
     {
         var courtsQuery = BaseCourtQuery();
 
-        if (query.VenueId.HasValue)
-        {
-            courtsQuery = courtsQuery.Where(court => court.VenueId == query.VenueId.Value);
-        }
-
-        if (query.SportId.HasValue)
-        {
-            courtsQuery = courtsQuery.Where(court => court.SportId == query.SportId.Value);
-        }
-
         if (query.Status.HasValue)
         {
             courtsQuery = courtsQuery.Where(court => court.Status == query.Status.Value);
         }
 
+        if (!string.IsNullOrWhiteSpace(query.CourtType))
+        {
+            var courtType = query.CourtType.Trim();
+            courtsQuery = courtsQuery.Where(court => EF.Functions.ILike(court.CourtType, $"%{courtType}%"));
+        }
+
         if (!string.IsNullOrWhiteSpace(query.Keyword))
         {
             var keyword = query.Keyword.Trim();
-            courtsQuery = courtsQuery.Where(court => EF.Functions.ILike(court.Name, $"%{keyword}%"));
+            courtsQuery = courtsQuery.Where(court =>
+                EF.Functions.ILike(court.Name, $"%{keyword}%") ||
+                EF.Functions.ILike(court.CourtType, $"%{keyword}%"));
         }
 
         return await courtsQuery
-            .OrderBy(court => court.Venue.Name)
-            .ThenBy(court => court.Name)
+            .OrderBy(court => court.Name)
             .Select(court => MapCourtResponse(court))
             .ToListAsync(cancellationToken);
     }
@@ -53,31 +50,26 @@ public class CourtService(AppDbContext dbContext) : ICourtService
         CourtCreateRequest request,
         CancellationToken cancellationToken)
     {
-        var validation = await ValidateCreateRequestAsync(request, cancellationToken);
+        var validation = await ValidateRequestAsync(null, request.Name, request.CourtType, cancellationToken);
 
         if (!validation.Succeeded)
         {
             return validation;
         }
 
-        var now = DateTimeOffset.UtcNow;
         var court = new Court
         {
             Id = Guid.NewGuid(),
-            VenueId = request.VenueId,
-            SportId = request.SportId,
             Name = request.Name.Trim(),
+            CourtType = request.CourtType.Trim(),
             Status = request.Status,
-            Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
-            CreatedAt = now
+            CreatedAt = DateTimeOffset.UtcNow
         };
 
         dbContext.Courts.Add(court);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var response = await GetCourtByIdAsync(court.Id, cancellationToken);
-
-        return CourtResult<CourtResponse>.Success(response!);
+        return CourtResult<CourtResponse>.Success(MapCourtResponse(court));
     }
 
     public async Task<CourtResult<CourtResponse>> UpdateCourtAsync(
@@ -93,34 +85,21 @@ public class CourtService(AppDbContext dbContext) : ICourtService
             return CourtResult<CourtResponse>.NotFound("Court was not found.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Name))
+        var validation = await ValidateRequestAsync(id, request.Name, request.CourtType, cancellationToken);
+
+        if (!validation.Succeeded)
         {
-            return CourtResult<CourtResponse>.BadRequest("Court name is required.");
+            return validation;
         }
 
-        var name = request.Name.Trim();
-        var nameExists = await dbContext.Courts.AnyAsync(otherCourt =>
-            otherCourt.Id != court.Id &&
-            otherCourt.VenueId == court.VenueId &&
-            otherCourt.DeletedAt == null &&
-            otherCourt.Name == name,
-            cancellationToken);
-
-        if (nameExists)
-        {
-            return CourtResult<CourtResponse>.Conflict("Court name already exists in this venue.");
-        }
-
-        court.Name = name;
+        court.Name = request.Name.Trim();
+        court.CourtType = request.CourtType.Trim();
         court.Status = request.Status;
-        court.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         court.UpdatedAt = DateTimeOffset.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var response = await GetCourtByIdAsync(court.Id, cancellationToken);
-
-        return CourtResult<CourtResponse>.Success(response!);
+        return CourtResult<CourtResponse>.Success(MapCourtResponse(court));
     }
 
     public async Task<CourtResult<bool>> DeleteCourtAsync(Guid id, CancellationToken cancellationToken)
@@ -146,49 +125,35 @@ public class CourtService(AppDbContext dbContext) : ICourtService
     {
         return dbContext.Courts
             .AsNoTracking()
-            .Include(court => court.Venue)
-            .Include(court => court.Sport)
-            .Where(court =>
-                court.DeletedAt == null &&
-                court.Venue.DeletedAt == null &&
-                court.Sport.DeletedAt == null);
+            .Where(court => court.DeletedAt == null);
     }
 
-    private async Task<CourtResult<CourtResponse>> ValidateCreateRequestAsync(
-        CourtCreateRequest request,
+    private async Task<CourtResult<CourtResponse>> ValidateRequestAsync(
+        Guid? id,
+        string name,
+        string courtType,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Name))
+        if (string.IsNullOrWhiteSpace(name))
         {
             return CourtResult<CourtResponse>.BadRequest("Court name is required.");
         }
 
-        var venueExists = await dbContext.Venues
-            .AnyAsync(venue => venue.Id == request.VenueId && venue.DeletedAt == null, cancellationToken);
-
-        if (!venueExists)
+        if (string.IsNullOrWhiteSpace(courtType))
         {
-            return CourtResult<CourtResponse>.BadRequest("Venue was not found.");
+            return CourtResult<CourtResponse>.BadRequest("CourtType is required.");
         }
 
-        var sportExists = await dbContext.Sports
-            .AnyAsync(sport => sport.Id == request.SportId && sport.DeletedAt == null, cancellationToken);
-
-        if (!sportExists)
-        {
-            return CourtResult<CourtResponse>.BadRequest("Sport was not found.");
-        }
-
-        var name = request.Name.Trim();
+        var trimmedName = name.Trim();
         var nameExists = await dbContext.Courts.AnyAsync(court =>
-            court.VenueId == request.VenueId &&
+            (!id.HasValue || court.Id != id.Value) &&
             court.DeletedAt == null &&
-            court.Name == name,
+            court.Name == trimmedName,
             cancellationToken);
 
         if (nameExists)
         {
-            return CourtResult<CourtResponse>.Conflict("Court name already exists in this venue.");
+            return CourtResult<CourtResponse>.Conflict("Court name already exists.");
         }
 
         return CourtResult<CourtResponse>.Success(new CourtResponse());
@@ -199,13 +164,9 @@ public class CourtService(AppDbContext dbContext) : ICourtService
         return new CourtResponse
         {
             Id = court.Id,
-            VenueId = court.VenueId,
-            VenueName = court.Venue.Name,
-            SportId = court.SportId,
-            SportName = court.Sport.Name,
             Name = court.Name,
+            CourtType = court.CourtType,
             Status = court.Status,
-            Description = court.Description,
             CreatedAt = court.CreatedAt,
             UpdatedAt = court.UpdatedAt
         };

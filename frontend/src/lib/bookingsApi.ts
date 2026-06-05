@@ -2,10 +2,14 @@ import { getAccessToken } from './authApi'
 import { apiRequest, buildQueryString, postJson, putJson } from './apiClient'
 
 export type BookingStatus = 1 | 2 | 3 | 4
+export type PaymentType = 1 | 2 | 3
 
 export type BookingCreateRequest = {
-  courtScheduleId: string
+  courtId: string
   bookingDate: string
+  startTime: string
+  endTime: string
+  paymentType: PaymentType
   note?: string
 }
 
@@ -13,11 +17,15 @@ export type BookingResponse = {
   id: string
   userId: string
   userName: string
-  courtScheduleId: string
+  courtId: string
   courtName: string
   bookingDate: string
+  startTime: string
+  endTime: string
+  hourlyPriceSnapshot: number
   status: BookingStatus
   totalPrice: number
+  paymentType: PaymentType
   note?: string | null
   createdAt: string
   updatedAt?: string | null

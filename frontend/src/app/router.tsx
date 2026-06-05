@@ -6,6 +6,7 @@ import { AdminBookingsPage } from '../pages/AdminBookingsPage'
 import { AdminCourtsPage } from '../pages/AdminCourtsPage'
 import { AdminDashboardPage } from '../pages/AdminDashboardPage'
 import { AdminPage } from '../pages/AdminPage'
+import { AdminPriceRulesPage } from '../pages/AdminPriceRulesPage'
 import { AdminRevenuePage } from '../pages/AdminRevenuePage'
 import { AdminUsersPage } from '../pages/AdminUsersPage'
 import { AvailabilityPage } from '../pages/AvailabilityPage'
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
       { path: 'admin/dashboard', element: <AdminDashboardPage /> },
       { path: 'admin/bookings', element: <AdminBookingsPage /> },
       { path: 'admin/bookings/calendar', element: <AdminBookingCalendarPage /> },
+      { path: 'admin/price-rules', element: <AdminPriceRulesPage /> },
       { path: 'admin/courts', element: <AdminCourtsPage /> },
       { path: 'admin/revenue', element: <AdminRevenuePage /> },
       { path: 'admin/users', element: <AdminUsersPage /> },

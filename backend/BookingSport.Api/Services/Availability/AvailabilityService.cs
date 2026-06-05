@@ -1,5 +1,6 @@
 using BookingSport.Api.Data;
 using BookingSport.Api.DTOs.Availability;
+using BookingSport.Api.Entities;
 using BookingSport.Api.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,6 +8,12 @@ namespace BookingSport.Api.Services.Availability;
 
 public class AvailabilityService(AppDbContext dbContext) : IAvailabilityService
 {
+    private static readonly BookingStatus[] BlockingStatuses =
+    [
+        BookingStatus.Pending,
+        BookingStatus.Confirmed
+    ];
+
     public async Task<AvailabilityResult> GetAvailableSchedulesAsync(
         Guid courtId,
         DateOnly date,
@@ -14,13 +21,9 @@ public class AvailabilityService(AppDbContext dbContext) : IAvailabilityService
     {
         var court = await dbContext.Courts
             .AsNoTracking()
-            .Include(court => court.Venue)
-            .Include(court => court.Sport)
             .FirstOrDefaultAsync(court =>
                 court.Id == courtId &&
-                court.DeletedAt == null &&
-                court.Venue.DeletedAt == null &&
-                court.Sport.DeletedAt == null,
+                court.DeletedAt == null,
                 cancellationToken);
 
         if (court is null)
@@ -33,42 +36,98 @@ public class AvailabilityService(AppDbContext dbContext) : IAvailabilityService
             return AvailabilityResult.Success(Array.Empty<AvailableScheduleResponse>());
         }
 
-        var blockedStatuses = new[] { BookingStatus.Pending, BookingStatus.Confirmed };
-        var bookedScheduleIds = await dbContext.Bookings
+        var priceRules = await dbContext.PriceRules
+            .AsNoTracking()
+            .Where(rule =>
+                rule.DayOfWeek == date.DayOfWeek &&
+                rule.IsEnabled &&
+                rule.StartTime < rule.EndTime)
+            .OrderBy(rule => rule.StartTime)
+            .ThenBy(rule => rule.EndTime)
+            .ToListAsync(cancellationToken);
+
+        var bookings = await dbContext.Bookings
             .AsNoTracking()
             .Where(booking =>
+                booking.CourtId == courtId &&
                 booking.BookingDate == date &&
                 booking.DeletedAt == null &&
-                blockedStatuses.Contains(booking.Status))
-            .Select(booking => booking.CourtScheduleId)
+                BlockingStatuses.Contains(booking.Status))
+            .OrderBy(booking => booking.StartTime)
+            .ThenBy(booking => booking.EndTime)
             .ToListAsync(cancellationToken);
 
-        var dayOfWeek = date.DayOfWeek;
+        var availableRanges = priceRules
+            .SelectMany(rule => BuildAvailableRanges(rule, court, date, bookings))
+            .OrderBy(range => range.StartTime)
+            .ThenBy(range => range.EndTime)
+            .ToList();
 
-        var schedules = await dbContext.CourtSchedules
-            .AsNoTracking()
-            .Where(schedule =>
-                schedule.CourtId == courtId &&
-                schedule.DayOfWeek == dayOfWeek &&
-                schedule.IsAvailable &&
-                schedule.DeletedAt == null &&
-                !bookedScheduleIds.Contains(schedule.Id))
-            .OrderBy(schedule => schedule.StartTime)
-            .ThenBy(schedule => schedule.EndTime)
-            .Select(schedule => new AvailableScheduleResponse
+        return AvailabilityResult.Success(availableRanges);
+    }
+
+    private static IEnumerable<AvailableScheduleResponse> BuildAvailableRanges(
+        PriceRule rule,
+        Court court,
+        DateOnly date,
+        IReadOnlyList<Booking> bookings)
+    {
+        var cursor = rule.StartTime;
+        var overlappingBookings = bookings
+            .Where(booking => booking.StartTime < rule.EndTime && booking.EndTime > rule.StartTime)
+            .OrderBy(booking => booking.StartTime)
+            .ThenBy(booking => booking.EndTime);
+
+        foreach (var booking in overlappingBookings)
+        {
+            var bookedStart = MaxTime(booking.StartTime, rule.StartTime);
+            var bookedEnd = MinTime(booking.EndTime, rule.EndTime);
+
+            if (cursor < bookedStart)
             {
-                ScheduleId = schedule.Id,
-                CourtId = court.Id,
-                CourtName = court.Name,
-                Date = date,
-                DayOfWeek = dayOfWeek,
-                StartTime = schedule.StartTime,
-                EndTime = schedule.EndTime,
-                Price = schedule.Price,
-                IsAvailable = schedule.IsAvailable
-            })
-            .ToListAsync(cancellationToken);
+                yield return MapAvailableRange(rule, court, date, cursor, bookedStart);
+            }
 
-        return AvailabilityResult.Success(schedules);
+            if (cursor < bookedEnd)
+            {
+                cursor = bookedEnd;
+            }
+        }
+
+        if (cursor < rule.EndTime)
+        {
+            yield return MapAvailableRange(rule, court, date, cursor, rule.EndTime);
+        }
+    }
+
+    private static AvailableScheduleResponse MapAvailableRange(
+        PriceRule rule,
+        Court court,
+        DateOnly date,
+        TimeOnly startTime,
+        TimeOnly endTime)
+    {
+        return new AvailableScheduleResponse
+        {
+            PriceRuleId = rule.Id,
+            CourtId = court.Id,
+            CourtName = court.Name,
+            Date = date,
+            DayOfWeek = date.DayOfWeek,
+            StartTime = startTime,
+            EndTime = endTime,
+            HourlyPrice = rule.HourlyPrice,
+            IsAvailable = true
+        };
+    }
+
+    private static TimeOnly MaxTime(TimeOnly first, TimeOnly second)
+    {
+        return first > second ? first : second;
+    }
+
+    private static TimeOnly MinTime(TimeOnly first, TimeOnly second)
+    {
+        return first < second ? first : second;
     }
 }

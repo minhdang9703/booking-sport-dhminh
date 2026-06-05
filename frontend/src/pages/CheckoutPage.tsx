@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import fieldPreviewImage from '../assets/checkout/field-preview.png'
 import { getAuthSession } from '../lib/authApi'
-import { createBooking } from '../lib/bookingsApi'
+import { createBooking, type PaymentType } from '../lib/bookingsApi'
 import type { AvailableSchedule, Court } from '../lib/courtsApi'
 
 type CheckoutState = {
@@ -12,16 +12,10 @@ type CheckoutState = {
 }
 
 const paymentMethods = [
-  { id: 'wallet', label: 'Ví điện tử', icon: '◇' },
-  { id: 'bank', label: 'Chuyển khoản', icon: '▣' },
-  { id: 'cash', label: 'Tại sân', icon: '●' },
+  { id: 3 as PaymentType, label: 'Ví điện tử', icon: '◇' },
+  { id: 2 as PaymentType, label: 'Chuyển khoản', icon: '▣' },
+  { id: 1 as PaymentType, label: 'Tại sân', icon: '●' },
 ]
-
-function isGuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value,
-  )
-}
 
 function readCheckoutState(): CheckoutState | null {
   const raw = sessionStorage.getItem('bookingSport.checkout')
@@ -33,7 +27,13 @@ function readCheckoutState(): CheckoutState | null {
   try {
     const parsed = JSON.parse(raw) as CheckoutState
 
-    return isGuid(parsed.schedule.scheduleId) ? parsed : null
+    return parsed.court?.id &&
+      parsed.schedule?.courtId &&
+      parsed.schedule?.date &&
+      parsed.schedule?.startTime &&
+      parsed.schedule?.endTime
+      ? parsed
+      : null
   } catch {
     return null
   }
@@ -56,6 +56,14 @@ function formatDate(value: string) {
   }).format(new Date(value))
 }
 
+function calculateTotalPrice(schedule: AvailableSchedule) {
+  const [startHour, startMinute] = schedule.startTime.split(':').map(Number)
+  const [endHour, endMinute] = schedule.endTime.split(':').map(Number)
+  const hours = (endHour * 60 + endMinute - (startHour * 60 + startMinute)) / 60
+
+  return Math.max(hours, 0) * schedule.hourlyPrice
+}
+
 export function CheckoutPage() {
   const navigate = useNavigate()
   const checkoutState = useMemo(() => readCheckoutState(), [])
@@ -63,7 +71,7 @@ export function CheckoutPage() {
   const [fullName, setFullName] = useState(authSession?.user.fullName ?? '')
   const [phoneNumber, setPhoneNumber] = useState(authSession?.user.phoneNumber ?? '')
   const [note, setNote] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0].id)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentType>(paymentMethods[0].id)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -103,7 +111,7 @@ export function CheckoutPage() {
 
   const { court, schedule } = checkoutState
   const serviceFee = 0
-  const totalPrice = schedule.price + serviceFee
+  const totalPrice = calculateTotalPrice(schedule) + serviceFee
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -119,8 +127,11 @@ export function CheckoutPage() {
 
     try {
       await createBooking({
-        courtScheduleId: schedule.scheduleId,
+        courtId: schedule.courtId,
         bookingDate: schedule.date,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        paymentType: paymentMethod,
         note: note.trim() || undefined,
       })
       sessionStorage.removeItem('bookingSport.checkout')
@@ -238,14 +249,14 @@ export function CheckoutPage() {
                 className="h-full w-full object-cover"
               />
               <span className="absolute bottom-4 left-4 rounded-full bg-[#006e2f] px-3 py-1 text-xs font-bold text-white shadow-sm">
-                {court.sportName || 'Sân thể thao'}
+                {court.courtType || 'Sân thể thao'}
               </span>
             </div>
 
             <div className="space-y-6 p-6">
               <div>
                 <h2 className="text-2xl font-bold">{court.name}</h2>
-                <p className="mt-2 text-sm text-[#3d4a3d]">📍 {court.venueName}</p>
+                <p className="mt-2 text-sm text-[#3d4a3d]">{court.courtType}</p>
               </div>
 
               <div className="space-y-4 border-y border-[#bccbb9] py-5">
@@ -256,7 +267,7 @@ export function CheckoutPage() {
                     schedule.endTime,
                   )}`}
                 />
-                <SummaryRow label="Giá sân" value={`${formatCurrency(schedule.price)} VND`} />
+                <SummaryRow label="Giá theo giờ" value={`${formatCurrency(schedule.hourlyPrice)} VND`} />
                 <SummaryRow label="Phí dịch vụ" value={`${formatCurrency(serviceFee)} VND`} />
               </div>
 
