@@ -1,133 +1,114 @@
 # Booking Sport MVP
 
 Booking Sport là ứng dụng đặt sân thể thao gồm:
-- Backend API bằng ASP.NET Core
-- Frontend SPA bằng React + Vite
-- Database PostgreSQL
 
-MVP hiện tại đã hỗ trợ luồng đặt sân cơ bản cho người dùng và các màn quản trị cốt lõi cho admin.
+- Backend API bằng ASP.NET Core .NET 8.
+- Frontend SPA bằng React + TypeScript + Vite.
+- Database PostgreSQL.
 
-## Tính năng MVP
+MVP hiện tại hỗ trợ luồng đặt sân cho khách hàng và các màn quản trị cốt lõi cho admin: quản lý sân, người dùng, khung giá, booking, calendar và doanh thu.
 
-### User
-- Xem danh sách sân
-- Tìm kiếm và lọc sân theo từ khóa, môn thể thao, cụm sân, trạng thái, mức giá ước tính
-- Xem chi tiết sân
-- Xem lịch trống theo ngày
-- Chọn khung giờ và đặt sân
-- Xem lịch sử đặt sân
+## Tính Năng Hiện Có
+
+### Người Dùng
+
+- Đăng ký và đăng nhập bằng JWT.
+- Xem trang chủ và danh sách sân.
+- Tìm kiếm/lọc sân theo từ khóa, loại sân và trạng thái.
+- Xem chi tiết sân.
+- Xem lịch trống của sân theo ngày.
+- Chọn slot trống và checkout để tạo booking.
+- Xem lịch sử booking cá nhân.
 
 ### Admin
-- Đăng nhập vào khu vực quản trị
-- Quản lý sân: tạo, cập nhật, xóa mềm
-- Quản lý booking: lọc theo ngày, trạng thái, từ khóa
-- Xác nhận, hủy, hoàn tất booking
-- Quản lý lịch đặt theo calendar
-- Xem dashboard doanh thu theo ngày, tuần, tháng
 
-## Công nghệ
+- Đăng nhập khu vực quản trị.
+- Xem dashboard tổng quan.
+- Quản lý người dùng.
+- Quản lý sân: tạo, cập nhật, xóa mềm.
+- Quản lý khung giá (`PriceRule`): tạo, cập nhật, xóa, bật/tắt, chống trùng giờ giữa các rule đang bật.
+- Quản lý booking: lọc danh sách, xem chi tiết, cập nhật trạng thái.
+- Xem booking calendar.
+- Xem dashboard doanh thu theo ngày, tuần, tháng.
 
-- Backend: .NET 8, ASP.NET Core Web API
-- Frontend: React, TypeScript, Vite, React Router, Tailwind CSS
-- Database: PostgreSQL
-- ORM: Entity Framework Core
-- Auth: JWT Bearer
-- E2E: Playwright
+## Công Nghệ
 
-## Cấu trúc chính
+- Backend: .NET 8, ASP.NET Core Web API.
+- ORM/Database: Entity Framework Core, PostgreSQL.
+- Auth: JWT Bearer, role-based authorization.
+- Frontend: React, TypeScript, Vite, React Router, Tailwind CSS.
+- Backend tests: xUnit, FluentAssertions, SQLite in-memory, WebApplicationFactory, local PostgreSQL integration database, Testcontainers fallback.
+- Frontend E2E: Playwright.
 
-- `backend/BookingSport.Api`: ASP.NET Core API
-- `backend/BookingSport.Api/Controllers`: API controllers
-- `backend/BookingSport.Api/Services`: business logic
-- `backend/BookingSport.Api/DTOs`: request/response DTOs
-- `backend/BookingSport.Api/Entities`: EF Core entities
-- `backend/BookingSport.Api/Migrations`: EF Core migrations
-- `backend/scripts`: script seed dữ liệu
-- `frontend`: ứng dụng React
-- `frontend/tests`: Playwright e2e tests
+## Cấu Trúc Project
 
-## Yêu cầu môi trường
+- `backend/BookingSport.Api`: ASP.NET Core API.
+- `backend/BookingSport.Api/Controllers`: API controllers.
+- `backend/BookingSport.Api/Services`: business logic.
+- `backend/BookingSport.Api/DTOs`: request/response DTOs.
+- `backend/BookingSport.Api/Entities`: EF Core entities.
+- `backend/BookingSport.Api/Migrations`: EF Core migrations.
+- `backend/BookingSport.Api.Tests`: unit tests và integration tests backend.
+- `backend/scripts`: script/tool seed dữ liệu.
+- `frontend`: ứng dụng React.
+- `frontend/tests`: Playwright E2E tests.
+- `docs/plan`: tài liệu phân tích trước triển khai.
+- `docs/todo`: todo list cần duyệt.
+- `docs/report`: report sau triển khai.
 
-- .NET SDK 8
-- Node.js 20+
-- PostgreSQL
+## Yêu Cầu Môi Trường
 
-## Chạy local
+- .NET SDK 8 hoặc mới hơn.
+- Node.js 20 hoặc mới hơn.
+- PostgreSQL local.
+- Docker Desktop/Docker Engine là tùy chọn, chỉ dùng làm fallback cho integration tests nếu không dùng local PostgreSQL.
 
-### 1. Backend
+## Chạy Local
 
-Di chuyển vào thư mục API:
+### Backend
 
 ```bash
 cd backend/BookingSport.Api
-```
-
-Restore, build, chạy migration:
-
-```bash
 dotnet restore
 dotnet build
 dotnet ef database update
-```
-
-Chạy API:
-
-```bash
 dotnet run
 ```
 
-`launchSettings.json` hiện khai báo API ở:
+Theo `launchSettings.json`, API chạy ở:
+
 - `http://localhost:5259`
 - `https://localhost:7131`
 
-Trong môi trường dev hiện tại của repo, frontend đang được cấu hình gọi:
-- `http://localhost:5029`
+Swagger được mở ở `/swagger` khi chạy môi trường Development.
 
-Nếu bạn chạy backend ở cổng khác, hãy cập nhật lại biến môi trường frontend cho khớp.
-
-### 2. Frontend
-
-Di chuyển vào thư mục frontend:
+### Frontend
 
 ```bash
 cd frontend
-```
-
-Cài dependencies:
-
-```bash
 npm.cmd install
-```
-
-Tạo file env nếu cần:
-
-```bash
-copy .env.example .env
-```
-
-Chạy dev server:
-
-```bash
 npm.cmd run dev
 ```
 
-Build kiểm tra:
+Frontend mặc định chạy ở:
+
+- `http://localhost:5173`
+
+Build frontend:
 
 ```bash
 npm.cmd run build
 ```
 
-Frontend mặc định chạy ở:
-- `http://localhost:5173`
-
-## Cấu hình môi trường
+## Cấu Hình Môi Trường
 
 ### Backend
 
-Connection string local hiện nằm trong:
+Config local nằm ở:
+
 - `backend/BookingSport.Api/appsettings.Development.json`
 
-Ví dụ:
+Connection string hiện tại:
 
 ```json
 {
@@ -137,40 +118,63 @@ Ví dụ:
 }
 ```
 
+JWT và CORS cũng được cấu hình trong `appsettings.Development.json`.
+
 ### Frontend
 
-File env mẫu:
-- `frontend/.env.example`
+File env local:
 
-File env local hiện tại:
 - `frontend/.env`
 
-Ví dụ đang dùng:
+Giá trị hiện dùng:
 
 ```env
-VITE_API_BASE_URL=http://localhost:5029
+VITE_API_BASE_URL=http://localhost:5259
 ```
 
-## Seed account dùng cho dev/e2e
+File mẫu:
 
-Tài khoản hiện được dùng để test local:
+- `frontend/.env.example`
 
-- Customer: `user01 / user123`
-- Admin: `admin / admin123`
+## Dữ Liệu Mẫu
 
-Script seed auth nằm tại:
-- `backend/scripts/seed-auth-users.sql`
+Script seed/sample data nằm trong:
 
-Lưu ý: dữ liệu DB local hiện có thể đã được cập nhật trực tiếp để khớp với 2 tài khoản trên.
+- `backend/scripts`
 
-## API chính của MVP
+Tài khoản thường dùng cho dev/E2E gần đây:
+
+- Admin: `admin@test.local / Test@123456`
+- Customer: `customer@test.local / Test@123456`
+
+Dữ liệu local có thể thay đổi theo từng lần seed/test. Kiểm tra script trong `backend/scripts` nếu cần dựng lại dữ liệu mẫu.
+
+## API Chính
+
+Các endpoint cần đăng nhập dùng header:
+
+```http
+Authorization: Bearer {accessToken}
+```
+
+Admin endpoints yêu cầu role `Admin`.
 
 ### Auth
+
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 
+### Users
+
+- `GET /api/users`
+- `GET /api/users/{id}`
+- `POST /api/users`
+- `PUT /api/users/{id}`
+- `DELETE /api/users/{id}`
+
 ### Courts
+
 - `GET /api/courts`
 - `GET /api/courts/{id}`
 - `GET /api/courts/{courtId}/available-schedules?date=YYYY-MM-DD`
@@ -178,14 +182,16 @@ Lưu ý: dữ liệu DB local hiện có thể đã được cập nhật trực
 - `PUT /api/courts/{id}`
 - `DELETE /api/courts/{id}`
 
-### Court schedules
-- `GET /api/court-schedules`
-- `GET /api/court-schedules/{id}`
-- `POST /api/court-schedules`
-- `PUT /api/court-schedules/{id}`
-- `DELETE /api/court-schedules/{id}`
+### Price Rules
+
+- `GET /api/price-rules`
+- `GET /api/price-rules/{id}`
+- `POST /api/price-rules`
+- `PUT /api/price-rules/{id}`
+- `DELETE /api/price-rules/{id}`
 
 ### Bookings
+
 - `POST /api/bookings`
 - `GET /api/bookings/my`
 - `GET /api/bookings`
@@ -193,41 +199,83 @@ Lưu ý: dữ liệu DB local hiện có thể đã được cập nhật trực
 - `PUT /api/bookings/{id}/status`
 
 ### Dashboard
+
 - `GET /api/dashboard/revenue?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD&period=Day|Week|Month`
 
+### Health
+
+- `GET /health`
+
 Tham khảo thêm:
+
 - `API_DOCS.md`
 
-## E2E hiện có
+## Quy Tắc Nghiệp Vụ Chính
 
-Playwright đã được cấu hình trong frontend.
+- Booking mới mặc định ở trạng thái `Pending`.
+- Booking ở trạng thái `Pending` hoặc `Confirmed` sẽ chặn slot tương ứng.
+- Booking ở trạng thái `Cancelled` hoặc `Completed` không chặn người dùng tạo booking mới cùng slot.
+- Doanh thu dashboard chỉ tính booking có trạng thái `Completed`.
+- Price rule đang bật không được overlap với price rule đang bật khác trong cùng ngày.
+- Court bị xóa mềm hoặc không active sẽ không được dùng như sân khả dụng cho booking.
 
-Chạy toàn bộ e2e:
+## Tests
+
+### Backend
+
+Chạy toàn bộ backend tests:
+
+```bash
+dotnet test backend/BookingSport.sln
+```
+
+Backend test project:
+
+- `backend/BookingSport.Api.Tests`
+
+Hiện có:
+
+- 52 service unit tests dùng SQLite in-memory.
+- 10 API integration flow tests dùng `WebApplicationFactory`.
+- Tổng suite hiện tại: 62 tests pass, 0 failed, 0 skipped.
+
+Integration tests ưu tiên local PostgreSQL test database:
+
+```text
+booking_sport_integration_tests
+```
+
+Factory đọc connection string từ `backend/BookingSport.Api/appsettings.Development.json`, đổi database từ `booking_sport` sang `booking_sport_integration_tests`, rồi reset/migrate database test trước mỗi flow. Database dev `booking_sport` không bị reset.
+
+Nếu local PostgreSQL không dùng được, integration tests fallback sang PostgreSQL Testcontainers. Nếu cả local PostgreSQL và Docker đều không dùng được, integration tests sẽ skip có lý do rõ ràng.
+
+### Frontend E2E
 
 ```bash
 cd frontend
 npm.cmd run test:e2e
 ```
 
-Chạy e2e có mở browser:
+Chạy E2E có mở browser:
 
 ```bash
 npm.cmd run test:e2e:headed
 ```
 
-Các luồng e2e hiện đang được bao phủ:
-- User vào chi tiết sân và chuyển sang checkout
-- User đăng ký và tạo booking thành công
-- User đăng nhập và search/filter sân
-- User xem sân, xem lịch trống, đặt sân, xem lịch sử
-- Admin quản lý sân
-- Admin quản lý booking
-- Admin cập nhật booking từ calendar
-- Admin xem doanh thu theo ngày, tuần, tháng
+Các luồng E2E chính:
 
-## Ghi chú hiện tại của MVP
+- User login và filter danh sách sân.
+- User xem lịch trống, chọn slot, checkout booking.
+- User xem lịch sử booking.
+- Admin CRUD court.
+- Admin CRUD price rule.
+- Admin update booking status.
+- Admin xem booking calendar.
+- Admin xem revenue dashboard.
 
-- Luồng booking thật đã bỏ fallback demo để tránh sang checkout với dữ liệu giả.
-- Sau khi đặt sân thành công, user được redirect về trang chủ.
-- Bộ lọc ở màn user hiện dùng dữ liệu thật từ API và client-side filtering cho phần giá ước tính.
-- Một số tài liệu cũ trong repo có thể vẫn đang dùng cổng `5000`; môi trường dev hiện tại đang dùng `5029` cho API frontend.
+## Ghi Chú
+
+- Controllers giữ mỏng; business logic nằm trong Services.
+- Request/response đi qua DTO, không expose entity trực tiếp.
+- Database schema được quản lý bằng EF Core migrations.
+- Các tài liệu phân tích/todo/report nằm trong `docs`.
