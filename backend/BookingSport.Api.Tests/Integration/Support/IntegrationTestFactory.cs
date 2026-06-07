@@ -109,6 +109,10 @@ public sealed class IntegrationTestFactory : WebApplicationFactory<Program>, IAs
                 ["Jwt:Audience"] = JwtAudience,
                 ["Jwt:Secret"] = JwtSecret,
                 ["Jwt:AccessTokenMinutes"] = "120",
+                ["Auth:RefreshTokenDays"] = "14",
+                ["Auth:RefreshCookieName"] = "bookingSport.refresh",
+                ["Auth:CookieSecure"] = "true",
+                ["Auth:CookieSameSite"] = "Lax",
                 ["Cors:AllowedOrigins:0"] = "http://localhost"
             });
         });
@@ -170,6 +174,10 @@ public sealed class IntegrationTestFactory : WebApplicationFactory<Program>, IAs
         SetEnvironmentVariable("Jwt__Audience", JwtAudience);
         SetEnvironmentVariable("Jwt__Secret", JwtSecret);
         SetEnvironmentVariable("Jwt__AccessTokenMinutes", "120");
+        SetEnvironmentVariable("Auth__RefreshTokenDays", "14");
+        SetEnvironmentVariable("Auth__RefreshCookieName", "bookingSport.refresh");
+        SetEnvironmentVariable("Auth__CookieSecure", "true");
+        SetEnvironmentVariable("Auth__CookieSameSite", "Lax");
         SetEnvironmentVariable("Cors__AllowedOrigins__0", "http://localhost");
     }
 

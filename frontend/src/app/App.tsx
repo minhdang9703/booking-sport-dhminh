@@ -4,9 +4,12 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import avatarImage from '../assets/courts/avatar.png'
 import logoImage from '../assets/courts/logo.png'
 import {
-  clearAuthSession,
   getAuthSession,
   isAdminUser,
+  logout,
+  refreshSession,
+  subscribeAuthSession,
+  type AuthResponse,
 } from '../lib/authApi'
 
 const publicNavItems = [
@@ -20,6 +23,9 @@ export function App() {
   const navigate = useNavigate()
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const [authSession, setAuthSession] = useState<AuthResponse | null>(() =>
+    getAuthSession(),
+  )
   const isAuthPage =
     location.pathname === '/login' || location.pathname === '/register'
 
@@ -38,23 +44,33 @@ export function App() {
     return () => document.removeEventListener('mousedown', handlePointerDown)
   }, [])
 
+  useEffect(() => {
+    const unsubscribe = subscribeAuthSession(setAuthSession)
+
+    refreshSession().catch(() => {
+      setAuthSession(null)
+    })
+
+    return unsubscribe
+  }, [])
+
   if (isAuthPage) {
     return <Outlet />
   }
 
-  const user = getAuthSession()?.user ?? null
+  const user = authSession?.user ?? null
   const navItems = isAdminUser(user)
     ? [...publicNavItems, { to: '/admin', label: 'Admin' }]
     : publicNavItems
 
-  function handleLogout() {
+  async function handleLogout() {
     const confirmed = window.confirm('Bạn có chắc chắn muốn đăng xuất?')
 
     if (!confirmed) {
       return
     }
 
-    clearAuthSession()
+    await logout()
     setIsUserMenuOpen(false)
     navigate('/login')
   }

@@ -126,10 +126,10 @@ export async function loginViaApi(
 }
 
 export async function seedAuthSession(page: Page, auth: AuthResponse) {
-  await page.goto('/')
-  await page.evaluate((session) => {
-    localStorage.setItem('bookingSport.auth', JSON.stringify(session))
+  await page.addInitScript((session) => {
+    ;(window as typeof window & { __bookingSportAuthSession?: unknown }).__bookingSportAuthSession = session
   }, auth)
+  await page.goto('/')
 }
 
 export async function registerUniqueUser(

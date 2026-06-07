@@ -56,6 +56,9 @@ public sealed class TestDb : IAsyncDisposable
             ConfigureDateTimeOffset<Court>(modelBuilder);
             ConfigureDateTimeOffset<PriceRule>(modelBuilder);
             ConfigureDateTimeOffset<Booking>(modelBuilder);
+            ConfigureDateTimeOffset<RefreshToken>(modelBuilder);
+            ConfigureDateTimeOffset<AuthSetting>(modelBuilder);
+            ConfigureDateTimeOffset<UserAuthSetting>(modelBuilder);
         }
 
         private static void ConfigureDateTimeOffset<TEntity>(ModelBuilder modelBuilder)

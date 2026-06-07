@@ -12,13 +12,14 @@ MVP hiện tại hỗ trợ luồng đặt sân cho khách hàng và các màn q
 
 ### Người Dùng
 
-- Đăng ký và đăng nhập bằng JWT.
+- Đăng ký và đăng nhập bằng access token ngắn hạn + HttpOnly refresh cookie.
 - Xem trang chủ và danh sách sân.
 - Tìm kiếm/lọc sân theo từ khóa, loại sân và trạng thái.
 - Xem chi tiết sân.
 - Xem lịch trống của sân theo ngày.
 - Chọn slot trống và checkout để tạo booking.
 - Xem lịch sử booking cá nhân.
+- Cập nhật thời gian tồn tại access token/phiên của chính tài khoản trong giới hạn hệ thống.
 
 ### Admin
 
@@ -30,12 +31,13 @@ MVP hiện tại hỗ trợ luồng đặt sân cho khách hàng và các màn q
 - Quản lý booking: lọc danh sách, xem chi tiết, cập nhật trạng thái.
 - Xem booking calendar.
 - Xem dashboard doanh thu theo ngày, tuần, tháng.
+- Cập nhật thời gian tồn tại access token/phiên mặc định toàn hệ thống.
 
 ## Công Nghệ
 
 - Backend: .NET 8, ASP.NET Core Web API.
 - ORM/Database: Entity Framework Core, PostgreSQL.
-- Auth: JWT Bearer, role-based authorization.
+- Auth: JWT Bearer access token ngắn hạn, HttpOnly refresh cookie, role-based authorization.
 - Frontend: React, TypeScript, Vite, React Router, Tailwind CSS.
 - Backend tests: xUnit, FluentAssertions, SQLite in-memory, WebApplicationFactory, local PostgreSQL integration database, Testcontainers fallback.
 - Frontend E2E: Playwright.
@@ -118,7 +120,7 @@ Connection string hiện tại:
 }
 ```
 
-JWT và CORS cũng được cấu hình trong `appsettings.Development.json`.
+JWT, refresh cookie/session và CORS cũng được cấu hình trong `appsettings.Development.json`.
 
 ### Frontend
 
@@ -157,13 +159,21 @@ Các endpoint cần đăng nhập dùng header:
 Authorization: Bearer {accessToken}
 ```
 
+Access token được cấp lại bằng HttpOnly cookie `bookingSport.refresh` qua `POST /api/auth/refresh`. Frontend cần gửi request với credentials/cookie enabled.
+
 Admin endpoints yêu cầu role `Admin`.
 
 ### Auth
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `POST /api/auth/refresh`
+- `POST /api/auth/logout`
 - `GET /api/auth/me`
+- `GET /api/auth/session-settings`
+- `PUT /api/auth/session-settings`
+- `GET /api/admin/auth-settings`
+- `PUT /api/admin/auth-settings`
 
 ### Users
 

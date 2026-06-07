@@ -285,10 +285,9 @@ public class BookingService(AppDbContext dbContext) : IBookingService
 
     private static bool IsDuplicateBookingException(DbUpdateException exception)
     {
-        return exception.InnerException is PostgresException
-        {
-            SqlState: PostgresErrorCodes.UniqueViolation
-        };
+        return exception.InnerException is PostgresException postgresException &&
+            (postgresException.SqlState == PostgresErrorCodes.UniqueViolation ||
+             postgresException.SqlState == PostgresErrorCodes.ExclusionViolation);
     }
 
     private static BookingResult<BookingResponse> MapValidationFailure(BookingResult<PriceRule> result)

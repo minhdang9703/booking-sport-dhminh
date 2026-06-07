@@ -96,6 +96,119 @@ public class AuthFlowTests(IntegrationTestFactory factory)
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [SkippableFact]
+    public async Task RefreshAndLogoutFlow_WithCookie_RotatesAndRevokesSession()
+    {
+        factory.SkipIfDockerUnavailable();
+        await factory.ResetDatabaseAsync();
+        await factory.SeedAsync(dbContext =>
+        {
+            IntegrationSeedData.AddCoreData(dbContext);
+            return Task.CompletedTask;
+        });
+        var client = CreateClient();
+
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest
+        {
+            Email = "customer.integration@test.local",
+            Password = IntegrationSeedData.Password
+        });
+
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        loginResponse.Headers.GetValues("Set-Cookie")
+            .Should()
+            .Contain(cookie =>
+                cookie.Contains("bookingSport.refresh") &&
+                cookie.Contains("httponly", StringComparison.OrdinalIgnoreCase));
+
+        var refreshResponse = await client.PostAsJsonAsync("/api/auth/refresh", new { });
+
+        refreshResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var refreshed = await refreshResponse.ReadJsonAsync<AuthResponse>();
+        refreshed.AccessToken.Should().NotBeNullOrWhiteSpace();
+        refreshed.User.Email.Should().Be("customer.integration@test.local");
+
+        var logoutResponse = await client.PostAsJsonAsync("/api/auth/logout", new { });
+
+        logoutResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        logoutResponse.Headers.GetValues("Set-Cookie")
+            .Should()
+            .Contain(cookie => cookie.Contains("bookingSport.refresh") && cookie.Contains("expires="));
+
+        var refreshAfterLogout = await client.PostAsJsonAsync("/api/auth/refresh", new { });
+        refreshAfterLogout.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [SkippableFact]
+    public async Task AuthSettingsFlow_AdminCanUpdateAndCustomerIsForbidden()
+    {
+        factory.SkipIfDockerUnavailable();
+        await factory.ResetDatabaseAsync();
+        await factory.SeedAsync(dbContext =>
+        {
+            IntegrationSeedData.AddCoreData(dbContext);
+            return Task.CompletedTask;
+        });
+        var client = CreateClient();
+        var adminLogin = await client.LoginAsync("admin.integration@test.local");
+        client.SetBearerToken(adminLogin.AccessToken);
+
+        var updateResponse = await client.PutAsJsonAsync("/api/admin/auth-settings", new AuthSettingsUpdateRequest
+        {
+            AccessTokenMinutes = 20,
+            RefreshTokenDays = 10
+        });
+
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var settings = await updateResponse.ReadJsonAsync<AuthSettingsResponse>();
+        settings.AccessTokenMinutes.Should().Be(20);
+        settings.RefreshTokenDays.Should().Be(10);
+
+        var customerClient = CreateClient();
+        var customerLogin = await customerClient.LoginAsync("customer.integration@test.local");
+        customerClient.SetBearerToken(customerLogin.AccessToken);
+
+        var forbiddenResponse = await customerClient.PutAsJsonAsync("/api/admin/auth-settings", new AuthSettingsUpdateRequest
+        {
+            AccessTokenMinutes = 15,
+            RefreshTokenDays = 14
+        });
+
+        forbiddenResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [SkippableFact]
+    public async Task UserSessionSettingsFlow_UserCanUpdateOwnLifetime()
+    {
+        factory.SkipIfDockerUnavailable();
+        await factory.ResetDatabaseAsync();
+        await factory.SeedAsync(dbContext =>
+        {
+            IntegrationSeedData.AddCoreData(dbContext);
+            return Task.CompletedTask;
+        });
+        var client = CreateClient();
+        var login = await client.LoginAsync("customer.integration@test.local");
+        client.SetBearerToken(login.AccessToken);
+
+        var updateResponse = await client.PutAsJsonAsync("/api/auth/session-settings", new UserSessionSettingsUpdateRequest
+        {
+            AccessTokenMinutes = 25,
+            RefreshTokenDays = 5
+        });
+
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var settings = await updateResponse.ReadJsonAsync<UserSessionSettingsResponse>();
+        settings.AccessTokenMinutes.Should().Be(25);
+        settings.RefreshTokenDays.Should().Be(5);
+
+        var getResponse = await client.GetAsync("/api/auth/session-settings");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var currentSettings = await getResponse.ReadJsonAsync<UserSessionSettingsResponse>();
+        currentSettings.AccessTokenMinutes.Should().Be(25);
+        currentSettings.RefreshTokenDays.Should().Be(5);
+    }
+
     private HttpClient CreateClient()
     {
         return factory.CreateClient(new WebApplicationFactoryClientOptions

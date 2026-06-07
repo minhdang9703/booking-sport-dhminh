@@ -3,6 +3,7 @@ using System;
 using BookingSport.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BookingSport.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260606163251_AddBookingOverlapExclusionConstraint")]
+    partial class AddBookingOverlapExclusionConstraint
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,25 +24,6 @@ namespace BookingSport.Api.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("BookingSport.Api.Entities.AuthSetting", b =>
-                {
-                    b.Property<string>("Key")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Value")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.HasKey("Key");
-
-                    b.ToTable("AuthSettings");
-                });
 
             modelBuilder.Entity("BookingSport.Api.Entities.Booking", b =>
                 {
@@ -183,53 +167,6 @@ namespace BookingSport.Api.Migrations
                     b.ToTable("PriceRules");
                 });
 
-            modelBuilder.Entity("BookingSport.Api.Entities.RefreshToken", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("IpAddress")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("ReplacedByTokenHash")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTimeOffset?>("RevokedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("TokenHash")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("UserAgent")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExpiresAt");
-
-                    b.HasIndex("TokenHash")
-                        .IsUnique();
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("RefreshTokens");
-                });
-
             modelBuilder.Entity("BookingSport.Api.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -280,25 +217,6 @@ namespace BookingSport.Api.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("BookingSport.Api.Entities.UserAuthSetting", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int?>("AccessTokenMinutes")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("RefreshTokenDays")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("UserId");
-
-                    b.ToTable("UserAuthSettings");
-                });
-
             modelBuilder.Entity("BookingSport.Api.Entities.Booking", b =>
                 {
                     b.HasOne("BookingSport.Api.Entities.Court", "Court")
@@ -314,28 +232,6 @@ namespace BookingSport.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Court");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("BookingSport.Api.Entities.RefreshToken", b =>
-                {
-                    b.HasOne("BookingSport.Api.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("BookingSport.Api.Entities.UserAuthSetting", b =>
-                {
-                    b.HasOne("BookingSport.Api.Entities.User", "User")
-                        .WithOne()
-                        .HasForeignKey("BookingSport.Api.Entities.UserAuthSetting", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("User");
                 });

@@ -10,6 +10,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Court> Courts => Set<Court>();
     public DbSet<PriceRule> PriceRules => Set<PriceRule>();
     public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<AuthSetting> AuthSettings => Set<AuthSetting>();
+    public DbSet<UserAuthSetting> UserAuthSettings => Set<UserAuthSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -19,6 +22,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         ConfigureCourts(modelBuilder);
         ConfigurePriceRules(modelBuilder);
         ConfigureBookings(modelBuilder);
+        ConfigureRefreshTokens(modelBuilder);
+        ConfigureAuthSettings(modelBuilder);
+        ConfigureUserAuthSettings(modelBuilder);
     }
 
     private static void ConfigureUsers(ModelBuilder modelBuilder)
@@ -99,6 +105,56 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(booking => booking.CourtId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    private static void ConfigureRefreshTokens(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(token => token.Id);
+            entity.HasIndex(token => token.TokenHash).IsUnique();
+            entity.HasIndex(token => token.UserId);
+            entity.HasIndex(token => token.ExpiresAt);
+
+            entity.Property(token => token.TokenHash).HasMaxLength(128).IsRequired();
+            entity.Property(token => token.ExpiresAt).IsRequired();
+            entity.Property(token => token.CreatedAt).IsRequired();
+            entity.Property(token => token.ReplacedByTokenHash).HasMaxLength(128);
+            entity.Property(token => token.UserAgent).HasMaxLength(500);
+            entity.Property(token => token.IpAddress).HasMaxLength(80);
+
+            entity.HasOne(token => token.User)
+                .WithMany()
+                .HasForeignKey(token => token.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureAuthSettings(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<AuthSetting>(entity =>
+        {
+            entity.HasKey(setting => setting.Key);
+
+            entity.Property(setting => setting.Key).HasMaxLength(120).IsRequired();
+            entity.Property(setting => setting.Value).HasMaxLength(500).IsRequired();
+            entity.Property(setting => setting.UpdatedAt).IsRequired();
+        });
+    }
+
+    private static void ConfigureUserAuthSettings(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<UserAuthSetting>(entity =>
+        {
+            entity.HasKey(setting => setting.UserId);
+
+            entity.Property(setting => setting.UpdatedAt).IsRequired();
+
+            entity.HasOne(setting => setting.User)
+                .WithOne()
+                .HasForeignKey<UserAuthSetting>(setting => setting.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 

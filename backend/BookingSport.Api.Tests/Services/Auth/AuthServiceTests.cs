@@ -33,10 +33,12 @@ public class AuthServiceTests
         result.Response.User.PhoneNumber.Should().Be("0900000001");
         result.Response.User.Role.Should().Be(UserRole.Customer);
         result.Response.AccessToken.Should().NotBeNullOrWhiteSpace();
+        result.RefreshToken.Should().NotBeNullOrWhiteSpace();
 
         var token = new JwtSecurityTokenHandler().ReadJwtToken(result.Response.AccessToken);
         token.Claims.Should().Contain(claim => claim.Type == "email" && claim.Value == "user@example.com");
         db.Context.Users.Should().ContainSingle(user => user.Email == "user@example.com");
+        db.Context.RefreshTokens.Should().ContainSingle();
     }
 
     [Fact]
@@ -97,6 +99,58 @@ public class AuthServiceTests
         result.Succeeded.Should().BeTrue();
         result.Response!.User.Id.Should().Be(user.Id);
         result.Response.AccessToken.Should().NotBeNullOrWhiteSpace();
+        result.RefreshToken.Should().NotBeNullOrWhiteSpace();
+        db.Context.RefreshTokens.Should().ContainSingle(token => token.UserId == user.Id);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_WithValidRefreshToken_RotatesSessionAndReturnsNewToken()
+    {
+        await using var db = await TestDb.CreateAsync();
+        var hasher = new PasswordHasher<User>();
+        var user = TestData.User(email: "user@example.com");
+        user.PasswordHash = hasher.HashPassword(user, "secret123");
+        db.Context.Users.Add(user);
+        await db.Context.SaveChangesAsync();
+        var service = CreateService(db.Context, passwordHasher: hasher);
+        var login = await service.LoginAsync(new LoginRequest
+        {
+            Email = "user@example.com",
+            Password = "secret123"
+        }, CancellationToken.None);
+
+        var refreshed = await service.RefreshAsync(
+            login.RefreshToken!,
+            "test-agent",
+            "127.0.0.1",
+            CancellationToken.None);
+
+        refreshed.Succeeded.Should().BeTrue();
+        refreshed.Response!.AccessToken.Should().NotBeNullOrWhiteSpace();
+        refreshed.RefreshToken.Should().NotBe(login.RefreshToken);
+        db.Context.RefreshTokens.Count().Should().Be(2);
+        db.Context.RefreshTokens.Count(token => token.RevokedAt != null).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WithValidRefreshToken_RevokesSession()
+    {
+        await using var db = await TestDb.CreateAsync();
+        var hasher = new PasswordHasher<User>();
+        var user = TestData.User(email: "user@example.com");
+        user.PasswordHash = hasher.HashPassword(user, "secret123");
+        db.Context.Users.Add(user);
+        await db.Context.SaveChangesAsync();
+        var service = CreateService(db.Context, passwordHasher: hasher);
+        var login = await service.LoginAsync(new LoginRequest
+        {
+            Email = "user@example.com",
+            Password = "secret123"
+        }, CancellationToken.None);
+
+        await service.LogoutAsync(login.RefreshToken, CancellationToken.None);
+
+        db.Context.RefreshTokens.Should().ContainSingle(token => token.RevokedAt != null);
     }
 
     [Fact]
@@ -161,6 +215,7 @@ public class AuthServiceTests
         return new AuthService(
             dbContext,
             configuration ?? TestConfiguration.JwtConfiguration(),
-            passwordHasher ?? new PasswordHasher<User>());
+            passwordHasher ?? new PasswordHasher<User>(),
+            new AuthSettingsService(dbContext, configuration ?? TestConfiguration.JwtConfiguration()));
     }
 }

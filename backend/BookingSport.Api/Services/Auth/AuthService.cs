@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
 using System.Security.Claims;
 using System.Text;
 using BookingSport.Api.Data;
@@ -14,7 +15,8 @@ namespace BookingSport.Api.Services.Auth;
 public class AuthService(
     AppDbContext dbContext,
     IConfiguration configuration,
-    PasswordHasher<User> passwordHasher) : IAuthService
+    PasswordHasher<User> passwordHasher,
+    IAuthSettingsService authSettingsService) : IAuthService
 {
     public async Task<AuthResult> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
@@ -49,7 +51,7 @@ public class AuthService(
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return AuthResult.Success(CreateAuthResponse(user));
+        return await CreateSuccessfulAuthResultAsync(user, null, null, cancellationToken);
     }
 
     public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
@@ -71,7 +73,78 @@ public class AuthService(
             return AuthResult.Failure("Invalid email or password.");
         }
 
-        return AuthResult.Success(CreateAuthResponse(user));
+        return await CreateSuccessfulAuthResultAsync(user, null, null, cancellationToken);
+    }
+
+    public async Task<AuthResult> RefreshAsync(
+        string refreshToken,
+        string? userAgent,
+        string? ipAddress,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return AuthResult.Failure("Refresh token is required.");
+        }
+
+        var tokenHash = HashRefreshToken(refreshToken);
+        var storedToken = await dbContext.RefreshTokens
+            .Include(token => token.User)
+            .FirstOrDefaultAsync(token => token.TokenHash == tokenHash, cancellationToken);
+
+        if (storedToken is null ||
+            storedToken.RevokedAt is not null ||
+            storedToken.ExpiresAt <= DateTimeOffset.UtcNow ||
+            storedToken.User.DeletedAt is not null)
+        {
+            return AuthResult.Failure("Refresh session is invalid.");
+        }
+
+        var newRefreshToken = GenerateRefreshToken();
+        var lifetime = await authSettingsService.GetEffectiveLifetimeAsync(storedToken.UserId, cancellationToken);
+        var newRefreshTokenExpiresAt = DateTimeOffset.UtcNow.AddDays(lifetime.RefreshTokenDays);
+        var newRefreshTokenHash = HashRefreshToken(newRefreshToken);
+
+        storedToken.RevokedAt = DateTimeOffset.UtcNow;
+        storedToken.ReplacedByTokenHash = newRefreshTokenHash;
+
+        dbContext.RefreshTokens.Add(new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = storedToken.UserId,
+            TokenHash = newRefreshTokenHash,
+            ExpiresAt = newRefreshTokenExpiresAt,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UserAgent = TrimToMaxLength(userAgent, 500),
+            IpAddress = TrimToMaxLength(ipAddress, 80)
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return AuthResult.Success(
+            await CreateAuthResponseAsync(storedToken.User, cancellationToken),
+            newRefreshToken,
+            newRefreshTokenExpiresAt);
+    }
+
+    public async Task LogoutAsync(string? refreshToken, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return;
+        }
+
+        var tokenHash = HashRefreshToken(refreshToken);
+        var storedToken = await dbContext.RefreshTokens
+            .FirstOrDefaultAsync(token => token.TokenHash == tokenHash, cancellationToken);
+
+        if (storedToken is null || storedToken.RevokedAt is not null)
+        {
+            return;
+        }
+
+        storedToken.RevokedAt = DateTimeOffset.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<CurrentUserResponse?> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -89,9 +162,39 @@ public class AuthService(
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    private AuthResponse CreateAuthResponse(User user)
+    private async Task<AuthResult> CreateSuccessfulAuthResultAsync(
+        User user,
+        string? userAgent,
+        string? ipAddress,
+        CancellationToken cancellationToken)
     {
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(GetAccessTokenMinutes());
+        var lifetime = await authSettingsService.GetEffectiveLifetimeAsync(user.Id, cancellationToken);
+        var refreshToken = GenerateRefreshToken();
+        var refreshTokenExpiresAt = DateTimeOffset.UtcNow.AddDays(lifetime.RefreshTokenDays);
+
+        dbContext.RefreshTokens.Add(new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TokenHash = HashRefreshToken(refreshToken),
+            ExpiresAt = refreshTokenExpiresAt,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UserAgent = TrimToMaxLength(userAgent, 500),
+            IpAddress = TrimToMaxLength(ipAddress, 80)
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return AuthResult.Success(
+            await CreateAuthResponseAsync(user, cancellationToken),
+            refreshToken,
+            refreshTokenExpiresAt);
+    }
+
+    private async Task<AuthResponse> CreateAuthResponseAsync(User user, CancellationToken cancellationToken)
+    {
+        var lifetime = await authSettingsService.GetEffectiveLifetimeAsync(user.Id, cancellationToken);
+        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(lifetime.AccessTokenMinutes);
 
         return new AuthResponse
         {
@@ -137,11 +240,27 @@ public class AuthService(
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private int GetAccessTokenMinutes()
+    private static string GenerateRefreshToken()
     {
-        return int.TryParse(configuration["Jwt:AccessTokenMinutes"], out var minutes) && minutes > 0
-            ? minutes
-            : 60;
+        var bytes = RandomNumberGenerator.GetBytes(64);
+        return Convert.ToBase64String(bytes);
+    }
+
+    private static string HashRefreshToken(string refreshToken)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken));
+        return Convert.ToHexString(hash);
+    }
+
+    private static string? TrimToMaxLength(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
 
     private static CurrentUserResponse MapCurrentUser(User user)

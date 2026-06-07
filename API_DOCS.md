@@ -8,6 +8,8 @@ Các endpoint yêu cầu đăng nhập dùng header:
 Authorization: Bearer {accessToken}
 ```
 
+Access token sống ngắn và được cấp lại bằng refresh/session token trong HttpOnly cookie `bookingSport.refresh`. Frontend cần gọi API với cookie credentials enabled. Refresh token không trả trong JSON response.
+
 Admin endpoint yêu cầu JWT có role `Admin`.
 
 Ghi chú enum: query/body có thể dùng tên enum như `Confirmed`, `Wednesday`, `Week` nếu model binding nhận được; response hiện trả enum dạng số vì JSON config chưa bật string enum converter.
@@ -34,11 +36,11 @@ Body:
 }
 ```
 
-Response: `200 OK` với `AuthResponse` gồm token và thông tin user.
+Response: `200 OK` với `AuthResponse` gồm access token và thông tin user. API đồng thời set HttpOnly refresh cookie.
 
 ### POST /api/auth/login
 
-Đăng nhập và nhận JWT.
+Đăng nhập và nhận access token ngắn hạn.
 
 Body:
 
@@ -49,7 +51,23 @@ Body:
 }
 ```
 
-Response: `200 OK` với `AuthResponse`.
+Response: `200 OK` với `AuthResponse`. API đồng thời set HttpOnly refresh cookie.
+
+### POST /api/auth/refresh
+
+Cấp access token mới bằng refresh cookie hiện tại.
+
+Yêu cầu: request có HttpOnly cookie `bookingSport.refresh`.
+
+Response: `200 OK` với `AuthResponse` mới và refresh cookie mới. Refresh token cũ bị revoke.
+
+### POST /api/auth/logout
+
+Đăng xuất phiên hiện tại.
+
+Yêu cầu: request có HttpOnly cookie `bookingSport.refresh`.
+
+Response: `204 No Content`. API revoke refresh token hiện tại và xóa cookie.
 
 ### GET /api/auth/me
 
@@ -58,6 +76,55 @@ Lấy thông tin user hiện tại.
 Yêu cầu: đăng nhập.
 
 Response: `200 OK` với `CurrentUserResponse`.
+
+### GET /api/auth/session-settings
+
+Lấy cấu hình lifetime access token/session của user hiện tại.
+
+Yêu cầu: đăng nhập.
+
+### PUT /api/auth/session-settings
+
+Cập nhật lifetime access token/session của user hiện tại trong giới hạn hệ thống.
+
+Yêu cầu: đăng nhập.
+
+Body:
+
+```json
+{
+  "accessTokenMinutes": 25,
+  "refreshTokenDays": 5
+}
+```
+
+Response: `200 OK` với `UserSessionSettingsResponse`.
+
+### GET /api/admin/auth-settings
+
+Lấy cấu hình lifetime access token/session mặc định toàn hệ thống.
+
+Yêu cầu: role `Admin`.
+
+### PUT /api/admin/auth-settings
+
+Cập nhật cấu hình lifetime access token/session mặc định toàn hệ thống.
+
+Yêu cầu: role `Admin`.
+
+Body:
+
+```json
+{
+  "accessTokenMinutes": 15,
+  "refreshTokenDays": 14
+}
+```
+
+Giới hạn hiện tại:
+
+- Access token: 5-60 phút.
+- Refresh/session: 1-30 ngày.
 
 ## Courts
 
