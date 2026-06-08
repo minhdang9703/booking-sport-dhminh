@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { subscribeToAdminBookings } from '../lib/bookingRealtime'
 import {
   getBookings,
   updateBookingStatus,
@@ -178,6 +179,39 @@ export function AdminBookingCalendarPage() {
     }
   }, [visibleRange.fromDate, visibleRange.toDate, statusFilter])
 
+  useEffect(() => {
+    return subscribeToAdminBookings({
+      onBookingCreated: (event) => {
+        if (!event.booking || !isBookingVisible(event.booking)) {
+          return
+        }
+
+        setBookings((current) => upsertBooking(current, event.booking!))
+        setSuccess('Có booking mới vừa được tạo.')
+      },
+      onBookingStatusUpdated: (event) => {
+        if (!event.booking) {
+          return
+        }
+
+        const updatedBooking = event.booking
+
+        setBookings((current) => {
+          const withoutCurrent = current.filter((booking) => booking.id !== updatedBooking.id)
+
+          if (!isBookingVisible(updatedBooking)) {
+            return withoutCurrent
+          }
+
+          return upsertBooking(withoutCurrent, updatedBooking)
+        })
+      },
+      onError: () => {
+        setError('Không thể kết nối realtime booking. Lịch vẫn được tải theo bộ lọc hiện tại.')
+      },
+    })
+  }, [statusFilter, visibleRange.fromDate, visibleRange.toDate])
+
   const calendarDays = useMemo<CalendarDay[]>(() => {
     const firstDay = parseDateKey(visibleRange.fromDate)
 
@@ -278,6 +312,14 @@ export function AdminBookingCalendarPage() {
     } finally {
       setSavingBookingId(null)
     }
+  }
+
+  function isBookingVisible(booking: BookingResponse) {
+    return (
+      booking.bookingDate >= visibleRange.fromDate &&
+      booking.bookingDate <= visibleRange.toDate &&
+      (statusFilter === 'all' || booking.status === statusFilter)
+    )
   }
 
   return (
@@ -476,6 +518,16 @@ export function AdminBookingCalendarPage() {
       </div>
     </main>
   )
+}
+
+function upsertBooking(bookings: BookingResponse[], booking: BookingResponse) {
+  const exists = bookings.some((item) => item.id === booking.id)
+
+  if (exists) {
+    return bookings.map((item) => (item.id === booking.id ? booking : item))
+  }
+
+  return [booking, ...bookings]
 }
 
 function AdminLink({ to, children }: { to: string; children: string }) {

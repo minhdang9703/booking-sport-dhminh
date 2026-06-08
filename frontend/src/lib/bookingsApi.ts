@@ -1,5 +1,5 @@
-import { getAccessToken } from './authApi'
-import { apiRequest, buildQueryString, postJson, putJson } from './apiClient'
+import { getAccessToken, refreshSession } from './authApi'
+import { apiBaseUrl, apiRequest, buildQueryString, postJson, putJson } from './apiClient'
 
 export type BookingStatus = 1 | 2 | 3 | 4
 export type PaymentType = 1 | 2 | 3
@@ -84,4 +84,57 @@ export function updateBookingStatus(
     request,
     getAuthHeaders(),
   )
+}
+
+export async function exportBookingsReport(query: BookingQuery = {}) {
+  const queryString = buildQueryString({
+    fromDate: query.fromDate,
+    toDate: query.toDate,
+    courtId: query.courtId,
+    status: query.status?.toString(),
+  })
+  let response = await fetchBookingReport(queryString)
+
+  if (response.status === 401) {
+    await refreshSession()
+    response = await fetchBookingReport(queryString)
+  }
+
+  if (!response.ok) {
+    throw new Error(`Export failed with status ${response.status}`)
+  }
+
+  const blob = await response.blob()
+  const fileName = getFileName(response.headers.get('Content-Disposition'))
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function fetchBookingReport(queryString: string) {
+  return fetch(`${apiBaseUrl}/api/admin/reports/bookings/export${queryString}`, {
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  })
+}
+
+function getFileName(contentDisposition: string | null) {
+  const fallback = 'booking-report.xlsx'
+
+  if (!contentDisposition) {
+    return fallback
+  }
+
+  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(contentDisposition)
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1])
+  }
+
+  const asciiMatch = /filename="?([^";]+)"?/i.exec(contentDisposition)
+  return asciiMatch?.[1] ?? fallback
 }

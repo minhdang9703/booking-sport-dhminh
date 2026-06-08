@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 
 import {
   adminCredentials,
+  addDays,
   createBookingViaApi,
   findAvailableSlot,
   findCourtByName,
@@ -168,7 +169,8 @@ test.describe('admin workflows', () => {
     await seedAuthSession(page, adminAuth)
     await page.goto('/admin/bookings/calendar')
 
-    await page.locator('button', { hasText: court.name }).first().click()
+    const day = addDays(new Date(`${slot.date}T00:00:00`), 0).getDate().toString()
+    await page.getByRole('button', { name: new RegExp(`^${day} .*${court.name}`) }).click()
     const sidebarCard = page.locator('aside article', { hasText: user.fullName })
     await expect(sidebarCard).toBeVisible()
     await sidebarCard.locator('select').selectOption('2')

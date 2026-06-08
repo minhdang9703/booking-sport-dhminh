@@ -2,12 +2,16 @@ using BookingSport.Api.Data;
 using BookingSport.Api.DTOs.Bookings;
 using BookingSport.Api.Entities;
 using BookingSport.Api.Enums;
+using BookingSport.Api.Services.Jobs;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 namespace BookingSport.Api.Services.Bookings;
 
-public class BookingService(AppDbContext dbContext) : IBookingService
+public class BookingService(
+    AppDbContext dbContext,
+    IBookingRealtimeNotifier realtimeNotifier,
+    IBookingConfirmationEmailQueue confirmationEmailQueue) : IBookingService
 {
     private static readonly BookingStatus[] BlockingStatuses =
     [
@@ -60,6 +64,9 @@ public class BookingService(AppDbContext dbContext) : IBookingService
             .Where(existingBooking => existingBooking.Id == booking.Id)
             .Select(existingBooking => MapBookingResponse(existingBooking))
             .FirstAsync(cancellationToken);
+
+        confirmationEmailQueue.EnqueueBookingConfirmation(response.Id);
+        await realtimeNotifier.NotifyBookingCreatedAsync(response, cancellationToken);
 
         return BookingResult<BookingResponse>.Success(response);
     }
@@ -174,6 +181,8 @@ public class BookingService(AppDbContext dbContext) : IBookingService
             .Where(existingBooking => existingBooking.Id == booking.Id)
             .Select(existingBooking => MapBookingResponse(existingBooking))
             .FirstAsync(cancellationToken);
+
+        await realtimeNotifier.NotifyBookingStatusUpdatedAsync(response, cancellationToken);
 
         return BookingResult<BookingResponse>.Success(response);
     }

@@ -85,7 +85,7 @@ test.describe('user booking flows', () => {
     await page.goto(`/courts/${court.id}/availability`)
     await selectSlotOnGrid(page, slot)
 
-    await expect(page.getByText(slot.date)).toBeVisible()
+    await expect(page.getByText(`${slot.date} ·`, { exact: false })).toBeVisible()
     await page.getByRole('button', { name: /Tiếp tục/ }).click()
 
     await expect(page.getByRole('heading', { name: 'Đặt sân', exact: true })).toBeVisible()

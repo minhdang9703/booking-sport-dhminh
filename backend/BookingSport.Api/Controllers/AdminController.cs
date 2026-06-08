@@ -1,5 +1,7 @@
 using BookingSport.Api.DTOs.Auth;
+using BookingSport.Api.DTOs.Bookings;
 using BookingSport.Api.Services.Auth;
+using BookingSport.Api.Services.Reports;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,6 +12,7 @@ namespace BookingSport.Api.Controllers;
 [Authorize(Policy = "AdminOnly")]
 public class AdminController(
     IAuthSettingsService authSettingsService,
+    IAdminBookingReportService adminBookingReportService,
     ILogger<AdminController> logger) : ControllerBase
 {
     [HttpGet("ping")]
@@ -44,5 +47,22 @@ public class AdminController(
             result.AuthSettings.RefreshTokenDays);
 
         return Ok(result.AuthSettings);
+    }
+
+    [HttpGet("reports/bookings/export")]
+    public async Task<IActionResult> ExportBookings(
+        [FromQuery] BookingQueryParameters query,
+        CancellationToken cancellationToken)
+    {
+        var report = await adminBookingReportService.ExportBookingsAsync(query, cancellationToken);
+
+        logger.LogInformation(
+            "Admin exported booking report. FromDate={FromDate}, ToDate={ToDate}, CourtId={CourtId}, Status={Status}",
+            query.FromDate,
+            query.ToDate,
+            query.CourtId,
+            query.Status);
+
+        return File(report.Content, report.ContentType, report.FileName);
     }
 }

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { subscribeToAdminBookings } from '../lib/bookingRealtime'
 import {
+  exportBookingsReport,
   getBookings,
   updateBookingStatus,
   type BookingResponse,
@@ -97,6 +99,7 @@ export function AdminBookingsPage() {
   const [bookings, setBookings] = useState<BookingResponse[]>([])
   const [selectedBooking, setSelectedBooking] = useState<BookingResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isExporting, setIsExporting] = useState(false)
   const [savingBookingId, setSavingBookingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -134,6 +137,42 @@ export function AdminBookingsPage() {
     return () => {
       isMounted = false
     }
+  }, [fromDate, toDate, statusFilter])
+
+  useEffect(() => {
+    return subscribeToAdminBookings({
+      onBookingCreated: (event) => {
+        if (!event.booking || !isBookingInCurrentFilter(event.booking)) {
+          return
+        }
+
+        setBookings((current) => upsertBooking(current, event.booking!))
+        setSuccess('Có booking mới vừa được tạo.')
+      },
+      onBookingStatusUpdated: (event) => {
+        if (!event.booking) {
+          return
+        }
+
+        const updatedBooking = event.booking
+
+        setBookings((current) => {
+          const withoutCurrent = current.filter((booking) => booking.id !== updatedBooking.id)
+
+          if (!isBookingInCurrentFilter(updatedBooking)) {
+            return withoutCurrent
+          }
+
+          return upsertBooking(withoutCurrent, updatedBooking)
+        })
+        setSelectedBooking((current) =>
+          current?.id === updatedBooking.id ? updatedBooking : current,
+        )
+      },
+      onError: () => {
+        setError('Không thể kết nối realtime booking. Dữ liệu vẫn được tải theo bộ lọc hiện tại.')
+      },
+    })
   }, [fromDate, toDate, statusFilter])
 
   function refreshWithLoading(action: () => void) {
@@ -197,6 +236,33 @@ export function AdminBookingsPage() {
     } finally {
       setSavingBookingId(null)
     }
+  }
+
+  async function handleExport() {
+    setIsExporting(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      await exportBookingsReport({
+        fromDate,
+        toDate,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+      })
+      setSuccess('Xuất file Excel thành công.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Xuất file Excel thất bại.')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  function isBookingInCurrentFilter(booking: BookingResponse) {
+    return (
+      booking.bookingDate >= fromDate &&
+      booking.bookingDate <= toDate &&
+      (statusFilter === 'all' || booking.status === statusFilter)
+    )
   }
 
   return (
@@ -286,6 +352,16 @@ export function AdminBookingsPage() {
               />
             </label>
           </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={isExporting}
+              className="rounded-lg bg-[#006e2f] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#005321] disabled:cursor-not-allowed disabled:bg-[#bccbb9]"
+            >
+              {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
+            </button>
+          </div>
         </section>
 
         {error ? <Alert tone="error" message={error} /> : null}
@@ -346,6 +422,16 @@ export function AdminBookingsPage() {
       </div>
     </main>
   )
+}
+
+function upsertBooking(bookings: BookingResponse[], booking: BookingResponse) {
+  const exists = bookings.some((item) => item.id === booking.id)
+
+  if (exists) {
+    return bookings.map((item) => (item.id === booking.id ? booking : item))
+  }
+
+  return [booking, ...bookings]
 }
 
 function AdminLink({ to, children }: { to: string; children: string }) {

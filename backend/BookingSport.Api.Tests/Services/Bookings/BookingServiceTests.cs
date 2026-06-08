@@ -1,6 +1,7 @@
 using BookingSport.Api.DTOs.Bookings;
 using BookingSport.Api.Enums;
 using BookingSport.Api.Services.Bookings;
+using BookingSport.Api.Services.Jobs;
 using BookingSport.Api.Tests.TestSupport;
 using FluentAssertions;
 
@@ -20,7 +21,7 @@ public class BookingServiceTests
         db.Context.Courts.Add(court);
         db.Context.PriceRules.Add(TestData.PriceRule(dayOfWeek: Monday.DayOfWeek, hourlyPrice: 120_000m));
         await db.Context.SaveChangesAsync();
-        var service = new BookingService(db.Context);
+        var service = CreateService(db.Context);
 
         var result = await service.CreateBookingAsync(user.Id, new BookingCreateRequest
         {
@@ -42,10 +43,31 @@ public class BookingServiceTests
     }
 
     [Fact]
+    public async Task CreateBookingAsync_WithValidRequest_NotifiesRealtimeAndEnqueuesConfirmationEmail()
+    {
+        await using var db = await TestDb.CreateAsync();
+        var user = TestData.User();
+        var court = TestData.Court();
+        db.Context.Users.Add(user);
+        db.Context.Courts.Add(court);
+        db.Context.PriceRules.Add(TestData.PriceRule(dayOfWeek: Monday.DayOfWeek));
+        await db.Context.SaveChangesAsync();
+        var notifier = new RecordingBookingRealtimeNotifier();
+        var emailQueue = new RecordingBookingConfirmationEmailQueue();
+        var service = new BookingService(db.Context, notifier, emailQueue);
+
+        var result = await service.CreateBookingAsync(user.Id, ValidCreateRequest(court.Id), CancellationToken.None);
+
+        result.Succeeded.Should().BeTrue();
+        notifier.CreatedBookingIds.Should().Contain(result.Value!.Id).And.HaveCount(1);
+        emailQueue.BookingIds.Should().Contain(result.Value.Id).And.HaveCount(1);
+    }
+
+    [Fact]
     public async Task CreateBookingAsync_WhenUserDoesNotExist_ReturnsBadRequest()
     {
         await using var db = await TestDb.CreateAsync();
-        var service = new BookingService(db.Context);
+        var service = CreateService(db.Context);
 
         var result = await service.CreateBookingAsync(Guid.NewGuid(), ValidCreateRequest(Guid.NewGuid()), CancellationToken.None);
 
@@ -62,7 +84,7 @@ public class BookingServiceTests
         db.Context.Users.Add(user);
         db.Context.Courts.Add(court);
         await db.Context.SaveChangesAsync();
-        var service = new BookingService(db.Context);
+        var service = CreateService(db.Context);
 
         var result = await service.CreateBookingAsync(user.Id, ValidCreateRequest(court.Id), CancellationToken.None);
 
@@ -80,7 +102,7 @@ public class BookingServiceTests
         db.Context.Courts.Add(court);
         db.Context.PriceRules.Add(TestData.PriceRule(dayOfWeek: Monday.DayOfWeek, startTime: new TimeOnly(8, 0), endTime: new TimeOnly(9, 0)));
         await db.Context.SaveChangesAsync();
-        var service = new BookingService(db.Context);
+        var service = CreateService(db.Context);
 
         var result = await service.CreateBookingAsync(user.Id, new BookingCreateRequest
         {
@@ -105,7 +127,7 @@ public class BookingServiceTests
         db.Context.PriceRules.Add(TestData.PriceRule(dayOfWeek: Monday.DayOfWeek));
         db.Context.Bookings.Add(TestData.Booking(userId: user.Id, courtId: court.Id, bookingDate: Monday, startTime: new TimeOnly(9, 0), endTime: new TimeOnly(10, 0), status: BookingStatus.Confirmed));
         await db.Context.SaveChangesAsync();
-        var service = new BookingService(db.Context);
+        var service = CreateService(db.Context);
 
         var result = await service.CreateBookingAsync(user.Id, new BookingCreateRequest
         {
@@ -119,6 +141,40 @@ public class BookingServiceTests
     }
 
     [Fact]
+    public async Task CreateBookingAsync_WhenOverlapsBlockingBooking_DoesNotNotifyOrEnqueueEmail()
+    {
+        await using var db = await TestDb.CreateAsync();
+        var user = TestData.User();
+        var court = TestData.Court();
+        db.Context.Users.Add(user);
+        db.Context.Courts.Add(court);
+        db.Context.PriceRules.Add(TestData.PriceRule(dayOfWeek: Monday.DayOfWeek));
+        db.Context.Bookings.Add(TestData.Booking(
+            userId: user.Id,
+            courtId: court.Id,
+            bookingDate: Monday,
+            startTime: new TimeOnly(9, 0),
+            endTime: new TimeOnly(10, 0),
+            status: BookingStatus.Confirmed));
+        await db.Context.SaveChangesAsync();
+        var notifier = new RecordingBookingRealtimeNotifier();
+        var emailQueue = new RecordingBookingConfirmationEmailQueue();
+        var service = new BookingService(db.Context, notifier, emailQueue);
+
+        var result = await service.CreateBookingAsync(user.Id, new BookingCreateRequest
+        {
+            CourtId = court.Id,
+            BookingDate = Monday,
+            StartTime = new TimeOnly(8, 30),
+            EndTime = new TimeOnly(9, 30)
+        }, CancellationToken.None);
+
+        result.Status.Should().Be(BookingResultStatus.Conflict);
+        notifier.CreatedBookingIds.Should().BeEmpty();
+        emailQueue.BookingIds.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task CreateBookingAsync_WhenOverlapsCompletedBooking_CreatesBooking()
     {
         await using var db = await TestDb.CreateAsync();
@@ -129,7 +185,7 @@ public class BookingServiceTests
         db.Context.PriceRules.Add(TestData.PriceRule(dayOfWeek: Monday.DayOfWeek));
         db.Context.Bookings.Add(TestData.Booking(userId: user.Id, courtId: court.Id, bookingDate: Monday, startTime: new TimeOnly(9, 0), endTime: new TimeOnly(10, 0), status: BookingStatus.Completed));
         await db.Context.SaveChangesAsync();
-        var service = new BookingService(db.Context);
+        var service = CreateService(db.Context);
 
         var result = await service.CreateBookingAsync(user.Id, new BookingCreateRequest
         {
@@ -154,7 +210,7 @@ public class BookingServiceTests
         db.Context.Courts.Add(court);
         db.Context.Bookings.Add(booking);
         await db.Context.SaveChangesAsync();
-        var service = new BookingService(db.Context);
+        var service = CreateService(db.Context);
 
         var result = await service.GetBookingByIdAsync(booking.Id, other.Id, isAdmin: false, CancellationToken.None);
 
@@ -176,7 +232,7 @@ public class BookingServiceTests
             TestData.Booking(userId: user.Id, courtId: otherCourt.Id, bookingDate: Monday, status: BookingStatus.Completed),
             TestData.Booking(userId: user.Id, courtId: court.Id, bookingDate: Monday, status: BookingStatus.Pending));
         await db.Context.SaveChangesAsync();
-        var service = new BookingService(db.Context);
+        var service = CreateService(db.Context);
 
         var result = await service.GetBookingsAsync(new BookingQueryParameters
         {
@@ -202,7 +258,7 @@ public class BookingServiceTests
         db.Context.Courts.Add(court);
         db.Context.Bookings.AddRange(booking, otherBooking);
         await db.Context.SaveChangesAsync();
-        var service = new BookingService(db.Context);
+        var service = CreateService(db.Context);
 
         var result = await service.UpdateBookingStatusAsync(booking.Id, new BookingUpdateStatusRequest
         {
@@ -221,5 +277,41 @@ public class BookingServiceTests
             StartTime = new TimeOnly(8, 0),
             EndTime = new TimeOnly(9, 0)
         };
+    }
+
+    private static BookingService CreateService(BookingSport.Api.Data.AppDbContext dbContext)
+    {
+        return new BookingService(
+            dbContext,
+            new NoOpBookingRealtimeNotifier(),
+            new NoOpBookingConfirmationEmailQueue());
+    }
+
+    private sealed class RecordingBookingRealtimeNotifier : IBookingRealtimeNotifier
+    {
+        public List<Guid> CreatedBookingIds { get; } = [];
+        public List<Guid> UpdatedBookingIds { get; } = [];
+
+        public Task NotifyBookingCreatedAsync(BookingResponse booking, CancellationToken cancellationToken)
+        {
+            CreatedBookingIds.Add(booking.Id);
+            return Task.CompletedTask;
+        }
+
+        public Task NotifyBookingStatusUpdatedAsync(BookingResponse booking, CancellationToken cancellationToken)
+        {
+            UpdatedBookingIds.Add(booking.Id);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class RecordingBookingConfirmationEmailQueue : IBookingConfirmationEmailQueue
+    {
+        public List<Guid> BookingIds { get; } = [];
+
+        public void EnqueueBookingConfirmation(Guid bookingId)
+        {
+            BookingIds.Add(bookingId);
+        }
     }
 }

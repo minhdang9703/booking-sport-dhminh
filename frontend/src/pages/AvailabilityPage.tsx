@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 
 import fieldCardImage from '../assets/availability/field-card.png'
 import { getAuthSession } from '../lib/authApi'
+import { subscribeToCourtBookings, type BookingRealtimeEvent } from '../lib/bookingRealtime'
 import { createBooking, type BookingResponse, type PaymentType } from '../lib/bookingsApi'
 import {
   getAvailableSchedules,
@@ -125,6 +126,19 @@ function isRangeCoveringSlot(schedule: AvailableSchedule, rowTime: string) {
   const end = timeToMinutes(schedule.endTime)
 
   return start <= slotStart && end >= slotEnd
+}
+
+function isBlockingBookingEvent(event: BookingRealtimeEvent) {
+  return event.status === 1 || event.status === 2
+}
+
+function isSameSlot(slot: SlotCell, event: BookingRealtimeEvent) {
+  return (
+    slot.courtId === event.courtId &&
+    slot.date === event.bookingDate &&
+    timeToMinutes(slot.startTime) < timeToMinutes(event.endTime) &&
+    timeToMinutes(slot.endTime) > timeToMinutes(event.startTime)
+  )
 }
 
 function buildSlotCell(schedule: AvailableSchedule, rowTime: string): SlotCell {
@@ -252,6 +266,38 @@ export function AvailabilityPage() {
       isMounted = false
     }
   }, [availabilityRefreshKey, court, courtId, weekDays])
+
+  useEffect(() => {
+    if (!courtId) {
+      return undefined
+    }
+
+    return subscribeToCourtBookings(courtId, {
+      onAvailabilityChanged: (event) => {
+        if (
+          event.courtId !== courtId ||
+          event.userId === authSession?.user.id ||
+          !isBlockingBookingEvent(event)
+        ) {
+          return
+        }
+
+        setAvailabilityRefreshKey((current) => current + 1)
+        setSelectedSlot((current) => {
+          if (!current || !isSameSlot(current, event)) {
+            return current
+          }
+
+          setCheckoutModalState('closed')
+          setCheckoutError('Khung giờ này vừa có người khác đặt. Vui lòng chọn khung giờ khác.')
+          return null
+        })
+      },
+      onError: () => {
+        setError('Không thể kết nối realtime booking. Lịch vẫn có thể được tải lại thủ công.')
+      },
+    })
+  }, [authSession?.user.id, courtId])
 
   function getCellSlot(dateKey: string, rowTime: string) {
     const schedules = schedulesByDate[dateKey] ?? []

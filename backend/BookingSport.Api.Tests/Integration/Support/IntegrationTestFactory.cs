@@ -113,6 +113,7 @@ public sealed class IntegrationTestFactory : WebApplicationFactory<Program>, IAs
                 ["Auth:RefreshCookieName"] = "bookingSport.refresh",
                 ["Auth:CookieSecure"] = "true",
                 ["Auth:CookieSameSite"] = "Lax",
+                ["Hangfire:Enabled"] = "false",
                 ["Cors:AllowedOrigins:0"] = "http://localhost"
             });
         });
@@ -178,6 +179,7 @@ public sealed class IntegrationTestFactory : WebApplicationFactory<Program>, IAs
         SetEnvironmentVariable("Auth__RefreshCookieName", "bookingSport.refresh");
         SetEnvironmentVariable("Auth__CookieSecure", "true");
         SetEnvironmentVariable("Auth__CookieSameSite", "Lax");
+        SetEnvironmentVariable("Hangfire__Enabled", "false");
         SetEnvironmentVariable("Cors__AllowedOrigins__0", "http://localhost");
     }
 
