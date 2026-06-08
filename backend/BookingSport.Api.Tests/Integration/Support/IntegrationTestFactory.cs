@@ -114,6 +114,8 @@ public sealed class IntegrationTestFactory : WebApplicationFactory<Program>, IAs
                 ["Auth:CookieSecure"] = "true",
                 ["Auth:CookieSameSite"] = "Lax",
                 ["Hangfire:Enabled"] = "false",
+                ["Logging:File:Enabled"] = "false",
+                ["ApiLogging:EnableRequestBodyLogging"] = "true",
                 ["Cors:AllowedOrigins:0"] = "http://localhost"
             });
         });
@@ -180,6 +182,8 @@ public sealed class IntegrationTestFactory : WebApplicationFactory<Program>, IAs
         SetEnvironmentVariable("Auth__CookieSecure", "true");
         SetEnvironmentVariable("Auth__CookieSameSite", "Lax");
         SetEnvironmentVariable("Hangfire__Enabled", "false");
+        SetEnvironmentVariable("Logging__File__Enabled", "false");
+        SetEnvironmentVariable("ApiLogging__EnableRequestBodyLogging", "true");
         SetEnvironmentVariable("Cors__AllowedOrigins__0", "http://localhost");
     }
 

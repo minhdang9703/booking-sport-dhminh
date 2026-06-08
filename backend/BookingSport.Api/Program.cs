@@ -2,6 +2,8 @@ using System.Text;
 using BookingSport.Api.Data;
 using BookingSport.Api.Enums;
 using BookingSport.Api.Hubs;
+using BookingSport.Api.Logging;
+using BookingSport.Api.Middleware;
 using BookingSport.Api.Services.Auth;
 using BookingSport.Api.Services.Availability;
 using BookingSport.Api.Services.Bookings;
@@ -18,6 +20,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
+using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +32,32 @@ var frontendOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
     .Get<string[]>()
     ?? throw new InvalidOperationException("CORS allowed origins are not configured.");
+
+builder.Host.UseSerilog((context, services, loggerConfiguration) =>
+{
+    var fileOptions = context.Configuration.GetSection("Logging:File").Get<LogFileOptions>() ?? new LogFileOptions();
+
+    loggerConfiguration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .Enrich.WithProperty("Application", "BookingSport.Api")
+        .Enrich.WithEnvironmentName()
+        .Enrich.WithMachineName()
+        .Enrich.WithThreadId()
+        .WriteTo.Console();
+
+    if (fileOptions.Enabled)
+    {
+        var logFilePath = LogFilePathResolver.ResolveFilePath(context.HostingEnvironment.ContentRootPath, fileOptions);
+
+        loggerConfiguration.WriteTo.File(
+            logFilePath,
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: fileOptions.RetainedFileCountLimit,
+            restrictedToMinimumLevel: LogEventLevel.Information);
+    }
+});
 
 builder.Services.AddControllers()
     .AddNewtonsoftJson();
@@ -40,6 +70,7 @@ builder.Services.AddCors(options =>
             .WithOrigins(frontendOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
+            .WithExposedHeaders("Content-Disposition")
             .AllowCredentials();
     });
 });
@@ -58,7 +89,9 @@ builder.Services.AddScoped<IBookingEmailJob, BookingEmailJob>();
 builder.Services.AddScoped<IAdminBookingReportService, AdminBookingReportService>();
 builder.Services.AddScoped<IPriceRuleService, PriceRuleService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddSingleton<ILogSanitizer, LogSanitizer>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<ApiLoggingOptions>(builder.Configuration.GetSection("ApiLogging"));
 
 var hangfireEnabled = builder.Configuration.GetValue<bool?>("Hangfire:Enabled")
     ?? !builder.Environment.IsEnvironment("IntegrationTests");
@@ -134,12 +167,26 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseMiddleware<GlobalExceptionMiddleware>();
+app.UseSerilogRequestLogging();
+
 app.UseCors("Frontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseMiddleware<ApiLoggingMiddleware>();
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+if (app.Environment.IsEnvironment("IntegrationTests"))
+{
+    app.MapGet("/test/throw", (HttpContext _) =>
+    {
+        throw new InvalidOperationException("Integration test exception.");
+    });
+}
+
 app.MapControllers();
 app.MapHub<BookingHub>("/hubs/bookings");
 

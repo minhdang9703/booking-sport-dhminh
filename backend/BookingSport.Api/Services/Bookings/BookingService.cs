@@ -11,7 +11,8 @@ namespace BookingSport.Api.Services.Bookings;
 public class BookingService(
     AppDbContext dbContext,
     IBookingRealtimeNotifier realtimeNotifier,
-    IBookingConfirmationEmailQueue confirmationEmailQueue) : IBookingService
+    IBookingConfirmationEmailQueue confirmationEmailQueue,
+    ILogger<BookingService> logger) : IBookingService
 {
     private static readonly BookingStatus[] BlockingStatuses =
     [
@@ -67,6 +68,16 @@ public class BookingService(
 
         confirmationEmailQueue.EnqueueBookingConfirmation(response.Id);
         await realtimeNotifier.NotifyBookingCreatedAsync(response, cancellationToken);
+
+        logger.LogInformation(
+            "Booking was created. BookingId={BookingId}, UserId={UserId}, CourtId={CourtId}, BookingDate={BookingDate}, StartTime={StartTime}, EndTime={EndTime}, TotalPrice={TotalPrice}",
+            response.Id,
+            response.UserId,
+            response.CourtId,
+            response.BookingDate,
+            response.StartTime,
+            response.EndTime,
+            response.TotalPrice);
 
         return BookingResult<BookingResponse>.Success(response);
     }
@@ -165,6 +176,7 @@ public class BookingService(
             }
         }
 
+        var oldStatus = booking.Status;
         booking.Status = request.Status;
         booking.UpdatedAt = DateTimeOffset.UtcNow;
 
@@ -183,6 +195,12 @@ public class BookingService(
             .FirstAsync(cancellationToken);
 
         await realtimeNotifier.NotifyBookingStatusUpdatedAsync(response, cancellationToken);
+
+        logger.LogInformation(
+            "Booking status was updated. BookingId={BookingId}, OldStatus={OldStatus}, NewStatus={NewStatus}",
+            response.Id,
+            oldStatus,
+            response.Status);
 
         return BookingResult<BookingResponse>.Success(response);
     }

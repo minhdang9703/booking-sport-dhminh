@@ -4,6 +4,7 @@ using BookingSport.Api.Services.Bookings;
 using BookingSport.Api.Services.Jobs;
 using BookingSport.Api.Tests.TestSupport;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace BookingSport.Api.Tests.Services.Bookings;
 
@@ -54,7 +55,7 @@ public class BookingServiceTests
         await db.Context.SaveChangesAsync();
         var notifier = new RecordingBookingRealtimeNotifier();
         var emailQueue = new RecordingBookingConfirmationEmailQueue();
-        var service = new BookingService(db.Context, notifier, emailQueue);
+        var service = new BookingService(db.Context, notifier, emailQueue, NullLogger<BookingService>.Instance);
 
         var result = await service.CreateBookingAsync(user.Id, ValidCreateRequest(court.Id), CancellationToken.None);
 
@@ -159,7 +160,7 @@ public class BookingServiceTests
         await db.Context.SaveChangesAsync();
         var notifier = new RecordingBookingRealtimeNotifier();
         var emailQueue = new RecordingBookingConfirmationEmailQueue();
-        var service = new BookingService(db.Context, notifier, emailQueue);
+        var service = new BookingService(db.Context, notifier, emailQueue, NullLogger<BookingService>.Instance);
 
         var result = await service.CreateBookingAsync(user.Id, new BookingCreateRequest
         {
@@ -284,7 +285,8 @@ public class BookingServiceTests
         return new BookingService(
             dbContext,
             new NoOpBookingRealtimeNotifier(),
-            new NoOpBookingConfirmationEmailQueue());
+            new NoOpBookingConfirmationEmailQueue(),
+            NullLogger<BookingService>.Instance);
     }
 
     private sealed class RecordingBookingRealtimeNotifier : IBookingRealtimeNotifier

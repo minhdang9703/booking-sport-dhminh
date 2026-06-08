@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
 
 import {
   adminCredentials,
@@ -7,6 +8,7 @@ import {
   findAvailableSlot,
   findCourtByName,
   formatTime,
+  getCourts,
   loginViaApi,
   registerUniqueUser,
   seedAuthSession,
@@ -143,6 +145,50 @@ test.describe('admin workflows', () => {
     )
 
     expect(updated.status).toBe(3)
+  })
+
+  test('admin can export bookings report as an Excel file', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(60_000)
+
+    const adminAuth = await loginViaApi(
+      request,
+      adminCredentials.email,
+      adminCredentials.password,
+    )
+    const user = await registerUniqueUser(request, 'pw-export')
+    const courts = await getCourts(request)
+    const court = courts.find((item) => item.name.endsWith('5A'))
+    expect(court, 'Seeded court ending with 5A should exist.').toBeTruthy()
+    const slot = await findAvailableSlot(request, court.id)
+    await createBookingViaApi(
+      request,
+      user.auth.accessToken,
+      slot,
+      'Playwright export booking',
+    )
+
+    await seedAuthSession(page, adminAuth)
+    await page.goto('/admin/bookings')
+    await page.locator('input[type="date"]').nth(0).fill(slot.date)
+    await page.locator('input[type="date"]').nth(1).fill(slot.date)
+
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: /Excel/ }).click()
+    const download = await downloadPromise
+
+    expect(download.suggestedFilename()).toMatch(/^booking-report-\d{8}-\d{6}\.xlsx$/)
+
+    const path = await download.path()
+    expect(path).toBeTruthy()
+
+    const content = await readFile(path!)
+    expect(content.length).toBeGreaterThan(0)
+    expect(content.subarray(0, 2).toString('utf8')).toBe('PK')
+    expect(content.includes(Buffer.from('[Content_Types].xml'))).toBeTruthy()
+    expect(content.includes(Buffer.from('xl/workbook.xml'))).toBeTruthy()
   })
 
   test('admin can view booking on calendar and change status', async ({
